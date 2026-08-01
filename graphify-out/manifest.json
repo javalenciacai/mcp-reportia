@@ -1,0 +1,37 @@
+{
+  "package.json": {
+    "mtime": 1785599772.3025393,
+    "ast_hash": "e595b2b405bf03dc55b9ba41d0eee32e",
+    "semantic_hash": "e595b2b405bf03dc55b9ba41d0eee32e"
+  },
+  "src/client.ts": {
+    "mtime": 1785599958.4769707,
+    "ast_hash": "c4f9f2a728082a15afc7e2ba8dd2292a",
+    "semantic_hash": "c4f9f2a728082a15afc7e2ba8dd2292a"
+  },
+  "src/config.ts": {
+    "mtime": 1785599868.134526,
+    "ast_hash": "ba41fc00daba322a7a18e2d4a7105cfc",
+    "semantic_hash": "ba41fc00daba322a7a18e2d4a7105cfc"
+  },
+  "src/errors.ts": {
+    "mtime": 1785599896.2675705,
+    "ast_hash": "647d49570bf27e8ebc6da7eb7fb32416",
+    "semantic_hash": "647d49570bf27e8ebc6da7eb7fb32416"
+  },
+  "tsconfig.json": {
+    "mtime": 1785599778.7992382,
+    "ast_hash": "3b0e2bc3d79890499476da02a157f815",
+    "semantic_hash": "3b0e2bc3d79890499476da02a157f815"
+  },
+  "tsconfig.test.json": {
+    "mtime": 1785599783.9965665,
+    "ast_hash": "ab0435d3d548c2b89057c4f405903bb2",
+    "semantic_hash": "ab0435d3d548c2b89057c4f405903bb2"
+  },
+  "vitest.config.ts": {
+    "mtime": 1785599788.8661995,
+    "ast_hash": "e950ef4247dc04efe540eafd46af999e",
+    "semantic_hash": "e950ef4247dc04efe540eafd46af999e"
+  }
+}

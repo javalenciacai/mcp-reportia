@@ -1,0 +1,244 @@
+{
+  "communities": {
+    "0": [
+      "ref_es2022",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_declaration",
+      "tsconfig_compileroptions_declarationmap",
+      "tsconfig_compileroptions_esmoduleinterop",
+      "tsconfig_compileroptions_forceconsistentcasinginfilenames",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noimplicitany",
+      "tsconfig_compileroptions_noimplicitoverride",
+      "tsconfig_compileroptions_nounusedlocals",
+      "tsconfig_compileroptions_nounusedparameters",
+      "tsconfig_compileroptions_outdir",
+      "tsconfig_compileroptions_resolvejsonmodule",
+      "tsconfig_compileroptions_rootdir",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_sourcemap",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_target"
+    ],
+    "1": [
+      "src_errors",
+      "src_errors_autherror",
+      "src_errors_autherror_constructor",
+      "src_errors_describeerror",
+      "src_errors_guarderror",
+      "src_errors_guarderror_constructor",
+      "src_errors_networkerror",
+      "src_errors_networkerror_constructor",
+      "src_errors_notfounderror",
+      "src_errors_notfounderror_constructor",
+      "src_errors_reportiaerror",
+      "src_errors_reportiaerror_constructor",
+      "src_errors_reportiaerror_tojson",
+      "src_errors_rowlimiterror",
+      "src_errors_rowlimiterror_constructor",
+      "src_errors_timeouterror",
+      "src_errors_timeouterror_constructor",
+      "src_errors_validationerror",
+      "src_errors_validationerror_constructor"
+    ],
+    "2": [
+      "package",
+      "package_bin",
+      "package_bin_mcp_reportia",
+      "package_description",
+      "package_engines",
+      "package_engines_node",
+      "package_files",
+      "package_json_ref_dist",
+      "package_license",
+      "package_main",
+      "package_name",
+      "package_type",
+      "package_version",
+      "ref_env_example",
+      "ref_license",
+      "ref_readme_md"
+    ],
+    "3": [
+      "src_client",
+      "src_client_agent",
+      "src_client_buildurl",
+      "src_client_buildurlv2",
+      "src_client_clientdiagnostics",
+      "src_client_dispatch",
+      "src_client_dispatchresult",
+      "src_client_downloadresult",
+      "src_client_internals",
+      "src_client_isaborterror",
+      "src_client_loginresponse",
+      "src_client_maphttperror",
+      "src_client_normalizebase",
+      "src_client_parsejsonsafe",
+      "src_client_requestoptions",
+      "src_client_setcurrentbaseurl"
+    ],
+    "4": [
+      "package_devdependencies",
+      "package_devdependencies_rimraf",
+      "package_devdependencies_types_node",
+      "package_devdependencies_typescript",
+      "package_devdependencies_vitest",
+      "package_keywords",
+      "ref_ai",
+      "ref_mcp",
+      "ref_npx",
+      "ref_reportia",
+      "ref_stdio",
+      "rimraf",
+      "types_node",
+      "typescript",
+      "vitest"
+    ],
+    "5": [
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_clean",
+      "package_scripts_inspect",
+      "package_scripts_prepare",
+      "package_scripts_start",
+      "package_scripts_test",
+      "package_scripts_test_smoke",
+      "package_scripts_test_watch",
+      "package_scripts_typecheck"
+    ],
+    "6": [
+      "ref_tests_ts",
+      "ref_tsconfig_json",
+      "tsconfig_test",
+      "tsconfig_test_compileroptions",
+      "tsconfig_test_compileroptions_noemit",
+      "tsconfig_test_extends",
+      "tsconfig_test_include",
+      "tsconfig_test_json_ref_src_ts"
+    ],
+    "7": [
+      "src_config",
+      "src_config_appconfig",
+      "src_config_buildtestconfig",
+      "src_config_configerror",
+      "src_config_configerror_constructor",
+      "src_config_configschema",
+      "src_config_loadconfig",
+      "src_config_readenv"
+    ],
+    "8": [
+      "modelcontextprotocol_sdk",
+      "package_dependencies",
+      "package_dependencies_modelcontextprotocol_sdk",
+      "package_dependencies_undici",
+      "package_dependencies_zod",
+      "undici",
+      "zod"
+    ],
+    "9": [
+      "ref_node_modules",
+      "ref_tests",
+      "tsconfig",
+      "tsconfig_exclude",
+      "tsconfig_include",
+      "tsconfig_json_ref_dist",
+      "tsconfig_json_ref_src_ts"
+    ],
+    "10": [
+      "src_client_createclient",
+      "src_client_reportiaclient",
+      "src_client_reportiaclient_call",
+      "src_client_reportiaclient_close",
+      "src_client_reportiaclient_diagnostics",
+      "src_client_reportiaclient_download"
+    ],
+    "11": [
+      "vitest_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.1,
+    "1": 0.14619883040935672,
+    "2": 0.125,
+    "3": 0.15,
+    "4": 0.13333333333333333,
+    "5": 0.2,
+    "6": 0.25,
+    "7": 0.35714285714285715,
+    "8": 0.2857142857142857,
+    "9": 0.2857142857142857,
+    "10": 0.5333333333333333,
+    "11": 1.0
+  },
+  "gods": [
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 19
+    },
+    {
+      "id": "src_errors_reportiaerror",
+      "label": "ReportiaError",
+      "degree": 11
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 10
+    },
+    {
+      "id": "package_keywords",
+      "label": "keywords",
+      "degree": 8
+    },
+    {
+      "id": "package_files",
+      "label": "files",
+      "degree": 5
+    },
+    {
+      "id": "src_client_reportiaclient",
+      "label": "ReportiaClient",
+      "degree": 5
+    },
+    {
+      "id": "src_client_createclient",
+      "label": "createClient()",
+      "degree": 5
+    },
+    {
+      "id": "src_errors_autherror",
+      "label": "AuthError",
+      "degree": 4
+    },
+    {
+      "id": "src_errors_notfounderror",
+      "label": "NotFoundError",
+      "degree": 4
+    },
+    {
+      "id": "src_errors_validationerror",
+      "label": "ValidationError",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "keywords",
+      "target": "@modelcontextprotocol/sdk",
+      "source_files": [
+        "package.json",
+        "package.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "extends",
+      "note": "Bridges community 4 \u2192 community 8"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
