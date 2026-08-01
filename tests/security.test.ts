@@ -56,10 +56,13 @@ describe('seguridad: NIT de terceros', () => {
     expect(r.success).toBe(false);
   });
 
-  it('rechaza NIT con punto', () => {
+  // Tras F11 (judgment-day round 1) el regex NIT acepta '.', asi que
+  // el caso "123.456" pasa (es un NIT colombiano valido). Verificamos
+  // el caso positivo en lugar del negativo.
+  it('acepta NIT con punto como separador de miles (estilo colombiano)', () => {
     const schema = byNit.inputSchema;
-    const r = schema.safeParse({ companyId: 1, nit: '123.456' });
-    expect(r.success).toBe(false);
+    const r = schema.safeParse({ companyId: 1, nit: '900.123.456-7' });
+    expect(r.success).toBe(true);
   });
 
   it('acepta NIT solo con digitos y guion', () => {

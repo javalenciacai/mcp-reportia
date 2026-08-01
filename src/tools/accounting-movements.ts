@@ -6,11 +6,15 @@
  */
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool-base.js';
-import { ok, fail, resolveCompanyId, assertConfirmed } from '../tool-base.js';
+import { ok, fail, resolveCompanyId, assertConfirmed, isValidIsoDate } from '../tool-base.js';
 
 // Schemas
 
-/** Normaliza fechas string|Date a string YYYY-MM-DD para query params. */
+/** Normaliza fechas string|Date a string YYYY-MM-DD para query params.
+ *  NOTA: la rama z.date() es inerte porque JSON.stringify de un Date
+ *  produce ISO 8601 con T que NO matchea el regex. La conservamos
+ *  defensivamente pero la fuente real siempre es string.
+ *  Ademas validamos que la fecha sea real (no 2025-02-30). */
 const DateString = z
   .union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato de fecha inválido (YYYY-MM-DD)' }), z.date()])
   .optional()
@@ -23,6 +27,9 @@ const DateString = z
       return `${yyyy}-${mm}-${dd}`;
     }
     return v;
+  })
+  .refine((v) => v === undefined || isValidIsoDate(v), {
+    message: 'Fecha invalida (ej: 2025-02-30, 2025-13-01)',
   });
 
 const CompanyIdInput = z.object({
@@ -45,7 +52,13 @@ const ExportInput = ListFiltersInput.extend({
 });
 
 const DeleteAllInput = CompanyIdInput.extend({
-  confirmationText: z.string().min(10).max(120).regex(/^ELIMINAR MOVIMIENTOS EMPRESA \d+$/),
+  // Texto de confirmacion explicito: el ID al final del texto debe
+  // coincidir con el companyId que se va a eliminar. Esto cierra el
+  // bypass semantico donde el LLM podia escribir "ELIMINAR
+  // MOVIMIENTOS EMPRESA 999" para una empresa con id=1. La validacion
+  // exacta la hace el handler comparando el ID extraido contra
+  // resolveCompanyId().
+  confirmationText: z.string().regex(/^ELIMINAR MOVIMIENTOS EMPRESA \d+$/),
   reason: z.string().min(5).max(500),
   acknowledgeRisk: z.literal(true),
   confirm: z.boolean().optional(),
@@ -144,6 +157,19 @@ const DeleteAllTool: ToolDefinition<typeof DeleteAllInput> = {
   handler: async (input, ctx) => {
     try {
       const companyId = resolveCompanyId(input, ctx);
+
+      // Validacion de seguridad: el ID del confirmationText debe
+      // coincidir con el companyId que se va a eliminar.
+      const m = input.confirmationText.match(/\d+$/);
+      const textId = m ? Number(m[0]) : NaN;
+      if (!Number.isInteger(textId) || textId !== companyId) {
+        return fail({
+          code: 'CONFIRMATION_MISMATCH',
+          message:
+            `confirmationText (id=${textId}) no coincide con el companyId resuelto (id=${companyId}). ` +
+            `Reescribe "ELIMINAR MOVIMIENTOS EMPRESA ${companyId}" para confirmar.`,
+        });
+      }
 
       assertConfirmed(input, 'reportia_movements_delete_all');
 

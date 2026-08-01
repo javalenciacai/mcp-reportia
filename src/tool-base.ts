@@ -141,6 +141,33 @@ export function resolveCompanyId(input: { companyId?: unknown }, ctx: ToolContex
   return n;
 }
 
+/**
+ * Valida que un string con formato YYYY-MM-DD represente una fecha real.
+ * Evita que fechas imposibles como 2025-02-30, 2025-13-01 o 2025-00-15
+ * pasen la validacion regex de Zod.
+ */
+export function isValidIsoDate(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12) return false;
+  if (d < 1 || d > 31) return false;
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === mo - 1 &&
+    date.getUTCDate() === d
+  );
+}
+
+/** Schema Zod reutilizable para fechas YYYY-MM-DD que rechaza fechas imposibles. */
+export const IsoDateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato YYYY-MM-DD requerido' })
+  .refine(isValidIsoDate, { message: 'Fecha invalida (ej: 2025-02-30, 2025-13-01)' });
+
 /** Serializa el resultado de un handler a ToolResult exitoso. */
 export function ok(data: unknown, asText?: string): ToolResult {
   if (asText) return { ok: true, content: asText, data };
@@ -154,11 +181,42 @@ export function fail(err: unknown): ToolResult {
   if (err instanceof ReportiaError) {
     return {
       ok: false,
-      error: { code: err.code, message: describeError(err), details: err.details },
+      error: { code: err.code, message: describeError(err), details: redactDetails(err.details) },
     };
   }
   const msg = err instanceof Error ? err.message : String(err);
   return { ok: false, error: { code: 'UNEXPECTED', message: msg } };
+}
+
+/**
+ * Redacta campos sensibles conocidos en un objeto de detalles antes
+ * de devolverlos al LLM. Evita que errores del backend Reportia
+ * (que podrian ecoar credenciales, tokens, cookies, etc.) terminen
+ * en el contexto del LLM que invoca la tool.
+ */
+export function redactDetails(value: unknown, depth = 0): unknown {
+  if (depth > 4 || value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value.map((v) => redactDetails(v, depth + 1));
+  }
+  if (typeof value === 'object') {
+    const SENSITIVE = /^(password|passwd|secret|token|apikey|api_key|authorization|cookie|set-cookie|x-api-key|smtppassword|smtp_password|access_token|refresh_token|sessionid|sid|jwt|bearer|private[_-]?key)$/i;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (SENSITIVE.test(k)) {
+        out[k] = '[REDACTED]';
+      } else {
+        out[k] = redactDetails(v, depth + 1);
+      }
+    }
+    return out;
+  }
+  if (typeof value === 'string') {
+    // Tira respuestas que parezcan headers HTTP crudos con secretos.
+    if (/^(authorization|cookie|set-cookie):/im.test(value)) return '[REDACTED-HEADER]';
+    return value;
+  }
+  return value;
 }
 
 /** Verifica la confirmación para tools destructivos. */

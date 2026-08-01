@@ -23,20 +23,21 @@ const SearchThirdPartiesInput = CompanyIdInput.extend({
   limit: z.number().int().min(1).max(1000).optional().default(50),
 });
 
-// Get by NIT.
-// NITs en Colombia son alfanumericos (puede terminar en verificacion digito).
-// Restringimos a un alfabeto seguro para evitar inyeccion en la URL del path.
+// NITs en Colombia admiten puntos como separadores de miles y guion
+// antes del digito de verificacion (e.g. "900.123.456-7"). Restringimos
+// el alfabeto a un set seguro para evitar inyeccion en la URL del path.
 const GetThirdPartyByNitInput = CompanyIdInput.extend({
   nit: z
     .string()
     .min(5)
     .max(20)
-    .regex(/^[A-Za-z0-9-]+$/, { message: 'NIT solo permite letras, digitos y guion.' }),
+    .regex(/^[A-Za-z0-9.-]+$/, { message: 'NIT solo permite letras, digitos, punto y guion.' }),
 });
 
 // Portfolio balance (POST /third-parties/portfolio-balance con nits[] y cutoffDate)
 const PortfolioBalanceInput = CompanyIdInput.extend({
-  nits: z.array(z.string().min(1)).min(1),
+  // Cap en 500 NITs para prevenir DoS por listas enormes.
+  nits: z.array(z.string().min(1).max(20)).min(1).max(500),
   cutoffDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato de fecha inválido (YYYY-MM-DD)' }),
 });
 

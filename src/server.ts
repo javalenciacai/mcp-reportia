@@ -44,6 +44,24 @@ export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) 
 async function main() {
   try {
     const s = createMcpServer();
+    const client = createClient(loadConfig());
+
+    // SIGINT/SIGTERM handler: cierra la sesion del backend Reportia antes
+    // de salir, evitando sesiones colgadas (Juez B: B16).
+    const shutdown = async (signal: string) => {
+      process.stderr.write(`[mcp-reportia] recibido ${signal}, cerrando...\n`);
+      try {
+        await client.close();
+      } catch (e) {
+        process.stderr.write(
+          `[mcp-reportia] error cerrando cliente: ${e instanceof Error ? e.message : String(e)}\n`,
+        );
+      }
+      process.exit(0);
+    };
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
     await s.connect(new StdioServerTransport());
   } catch (e) {
     // stdio transport owns stdout; keep all diagnostics on stderr only.

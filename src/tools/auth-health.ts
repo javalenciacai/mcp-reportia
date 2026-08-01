@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { type ToolDefinition, ok, fail } from '../tool-base.js';
 
 const DiagnosticsInput = z.object({
-  includeSession: z.boolean().optional().describe('Incluye info de sesión si true (default false).'),
+  includeSession: z.boolean().optional().default(false).describe('Incluye info de sesión si true (default false).'),
 });
 
 const healthTool: ToolDefinition<typeof DiagnosticsInput> = {
@@ -19,7 +19,9 @@ const healthTool: ToolDefinition<typeof DiagnosticsInput> = {
       let apiHealth: unknown = null;
       let apiErr: string | null = null;
       try {
-        apiHealth = await ctx.client.call<unknown>('/api/health');
+        // /api/health es publico en Reportia: skipSession evita un login
+        // innecesario en cada health-check (Juez B: B23).
+        apiHealth = await ctx.client.call<unknown>('/api/health', { headers: { 'X-Skip-Session': '1' } });
       } catch (e) {
         apiErr = e instanceof Error ? e.message : String(e);
       }
@@ -60,11 +62,12 @@ const whoamiTool: ToolDefinition<typeof WhoAmIInput> = {
 const LogoutInput = z.object({});
 const logoutTool: ToolDefinition<typeof LogoutInput> = {
   name: 'reportia_logout',
-  description: 'Cierra la sesión actual contra Reportia (POST /api/auth/logout).',
+  description: 'Cierra la sesión actual contra Reportia (POST /api/auth/logout). Invalida la sesión local del cliente MCP tras el logout.',
   inputSchema: LogoutInput,
   handler: async (_input, ctx) => {
     try {
       await ctx.client.call<unknown>('/api/auth/logout', { method: 'POST' });
+      ctx.client.invalidateSession();
       return ok({ loggedOut: true });
     } catch (err) {
       return fail(err);

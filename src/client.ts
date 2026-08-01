@@ -17,6 +17,7 @@
  */
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { request, FormData, type Dispatcher } from 'undici';
 import { Agent } from 'undici';
 
@@ -28,6 +29,7 @@ import {
   ReportiaError,
   RowLimitError,
   TimeoutError,
+  UnprocessableError,
   ValidationError,
 } from './errors.js';
 
@@ -43,6 +45,12 @@ export interface RequestOptions {
   suggestedFileName?: string;
   timeoutMs?: number;
   headers?: Record<string, string>;
+  /**
+   * Si true, omite el login perezoso. Util para endpoints publicos
+   * (e.g. /api/health, /api/health/queue-system). Tambien respetado
+   * si el caller envia header X-Skip-Session: 1.
+   */
+  skipSession?: boolean;
 }
 
 /** Re-export para que las tools/tools-consumers importen la misma FormData. */
@@ -53,6 +61,31 @@ export interface DownloadResult {
   bytes: number;
   contentType: string | null;
   suggestedFileName: string;
+}
+
+/** Tamano maximo por defecto para una descarga binaria (100MB). */
+const DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
+
+/**
+ * Sanitiza un nombre de archivo propuesto para una descarga, evitando
+ * path traversal. Devuelve un nombre "basename" seguro o lanza si el
+ * resultado seria inutil.
+ */
+function safeBasename(name: string, tsPrefix: string): string {
+  const base = path.basename(name);
+  if (!base || base === '.' || base === '..') {
+    throw new ReportiaError({
+      message: 'Nombre de archivo propuesto no es seguro',
+      code: 'UNSAFE_FILENAME',
+    });
+  }
+  return `${tsPrefix}__${base}`;
+}
+
+/** Verifica que `child` este dentro de `parent` (previene path traversal). */
+function isInside(parent: string, child: string): boolean {
+  const rel = path.relative(parent, child);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
 export interface ClientDiagnostics {
@@ -69,6 +102,8 @@ export interface ReportiaClient {
   download(endpoint: string, options?: RequestOptions): Promise<DownloadResult>;
   close(): Promise<void>;
   diagnostics(): ClientDiagnostics;
+  /** Invalida la sesion local (cookie + userId) sin tocar el backend. */
+  invalidateSession(): void;
 }
 
 const CLIENT_VERSION = '0.1.0';
@@ -162,7 +197,9 @@ export function createClient(config: AppConfig): ReportiaClient {
       skipSession?: boolean;
     } = {},
   ): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: Buffer; json: unknown }> {
-    if (!opts.skipSession) await ensureSession();
+    // Honor tanto opts.skipSession como el header X-Skip-Session.
+    const skip = opts.skipSession === true || opts.headers?.['X-Skip-Session'] === '1';
+    if (!skip) await ensureSession();
     const timeoutMs = opts.timeoutMs ?? config.timeoutMs;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -249,6 +286,19 @@ export function createClient(config: AppConfig): ReportiaClient {
       const msg = safeMessage(r.body.toString('utf-8'), r.json);
       throw mapHttpError(r.status, endpoint, msg, r.json);
     }
+
+    // Cap de tamano: previene OOM si el backend devuelve un export
+    // inesperadamente grande (Juez B: B4 + B12).
+    const maxBytes = DEFAULT_MAX_DOWNLOAD_BYTES;
+    if (r.body.length > maxBytes) {
+      throw new ReportiaError({
+        message: `Descarga excede el tamano maximo permitido (${maxBytes} bytes; recibidos ${r.body.length})`,
+        code: 'DOWNLOAD_TOO_LARGE',
+        endpoint,
+        details: { received: r.body.length, max: maxBytes },
+      });
+    }
+
     await fs.mkdir(config.downloadDir, { recursive: true });
 
     let name = opts.suggestedFileName;
@@ -260,9 +310,18 @@ export function createClient(config: AppConfig): ReportiaClient {
       const base = path.basename(cleanPath) || 'reportia-export';
       name = `${base}.bin`;
     }
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const finalName = `${ts}__${path.basename(name)}`;
+    // Timestamp + random para evitar colisiones en descargas paralelas
+    // (Juez B: B11 + B36).
+    const tsPrefix = `${new Date().toISOString().replace(/[:.]/g, '-')}_${randomUUID().slice(0, 8)}`;
+    const finalName = safeBasename(name, tsPrefix);
     const absolutePath = path.resolve(config.downloadDir, finalName);
+    if (!isInside(path.resolve(config.downloadDir), absolutePath)) {
+      throw new ReportiaError({
+        message: 'Path traversal detectado: archivo quedaria fuera de downloadDir',
+        code: 'UNSAFE_FILENAME',
+        endpoint,
+      });
+    }
     await fs.writeFile(absolutePath, r.body);
     return {
       absolutePath,
@@ -287,6 +346,11 @@ export function createClient(config: AppConfig): ReportiaClient {
     }
   }
 
+  function invalidateSession(): void {
+    cookie = null;
+    userId = null;
+  }
+
   return {
     version: CLIENT_VERSION,
     call,
@@ -299,6 +363,7 @@ export function createClient(config: AppConfig): ReportiaClient {
       userId,
       downloadDir: config.downloadDir,
     }),
+    invalidateSession,
   };
 }
 
@@ -324,10 +389,12 @@ function mapHttpError(status: number, endpoint: string, msg: string, json: unkno
   if (status === 404) return new NotFoundError(msg, endpoint, json);
   if (status === 400) return new ValidationError(msg, endpoint, json);
   if (status === 422) {
-    const totalRows = (json as { totalRows?: unknown } | null)?.totalRows;
-    if (typeof totalRows === 'number') {
-      return new RowLimitError(msg, endpoint, totalRows, json);
+    const j = json as { totalRows?: unknown; errors?: unknown } | null;
+    if (typeof j?.totalRows === 'number') {
+      return new RowLimitError(msg, endpoint, j.totalRows, json);
     }
+    // 422 sin totalRows -> validacion (e.g. NestJS, Joi class-validator).
+    return new UnprocessableError(msg, endpoint, json);
   }
   return new ReportiaError({ message: msg, status, endpoint, details: json });
 }

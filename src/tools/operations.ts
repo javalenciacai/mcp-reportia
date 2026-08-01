@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool-base.js';
-import { ok, fail, resolveCompanyId } from '../tool-base.js';
+import { ok, fail, resolveCompanyId, assertConfirmed } from '../tool-base.js';
 
 // =========================================================================
 // Uploads: historial y estado
@@ -75,7 +75,8 @@ const queueSystemHealthTool: ToolDefinition<typeof QueueSystemHealthInput> = {
   inputSchema: QueueSystemHealthInput,
   handler: async (_input, ctx) => {
     try {
-      const data = await ctx.client.call<unknown>('/api/health/queue-system');
+      // Endpoint publico: skipSession para evitar latencia y 401 espurios.
+      const data = await ctx.client.call<unknown>('/api/health/queue-system', { headers: { 'X-Skip-Session': '1' } });
       return ok(data);
     } catch (err) {
       return fail(err);
@@ -92,7 +93,8 @@ const workersHealthTool: ToolDefinition<typeof WorkersHealthInput> = {
   inputSchema: WorkersHealthInput,
   handler: async (_input, ctx) => {
     try {
-      const data = await ctx.client.call<unknown>('/api/queue/workers/health');
+      // Endpoint publico: skipSession.
+      const data = await ctx.client.call<unknown>('/api/queue/workers/health', { headers: { 'X-Skip-Session': '1' } });
       return ok(data);
     } catch (err) {
       return fail(err);
@@ -215,13 +217,20 @@ const siigoSchedulesTool: ToolDefinition<typeof SiigoSchedulesInput> = {
 
 const SiigoHistoryInput = CompanyIdInput;
 
-const siigoHistoryTool: ToolDefinition<typeof SiigoHistoryInput> = {
+const SiigoHistoryInputWithConfirm = z.object({
+  companyId: z.number().int().positive().optional(),
+  confirm: z.boolean().optional(),
+});
+
+const siigoHistoryTool: ToolDefinition<typeof SiigoHistoryInputWithConfirm> = {
   name: 'reportia_siigo_history_get',
   description:
-    'Obtiene el historial de comandos SIIGO de una empresa. Si hay comandos activos, el servidor dispara una sincronizacion on-demand antes de devolver el resultado (GET /api/companies/:companyId/siigo/history).',
-  inputSchema: SiigoHistoryInput,
+    'Obtiene el historial de comandos SIIGO de una empresa. ⚠️ ATENCION: si el servidor detecta comandos activos, dispara una sincronizacion on-demand antes de devolver el resultado. DESTRUCTIVA: requiere { confirm: true } para evitar sincronizaciones accidentales.',
+  inputSchema: SiigoHistoryInputWithConfirm,
+  destructive: true,
   handler: async (input, ctx) => {
     try {
+      assertConfirmed(input, 'reportia_siigo_history_get');
       const companyId = resolveCompanyId(input, ctx);
       const data = await ctx.client.call<unknown>(
         `/api/companies/${companyId}/siigo/history`,

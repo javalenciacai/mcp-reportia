@@ -44,6 +44,7 @@ import {
   fail,
   resolveCompanyId,
   assertConfirmed,
+  IsoDateString,
 } from '../tool-base.js';
 
 // ─── Schemas base ────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ const ReportLineInput = z.object({
   subCenterCode: z.string().default(''),
   debitOperation: ReportOperation.default('ADD'),
   creditOperation: ReportOperation.default('SUBTRACT'),
-  displayOrder: z.number().int().min(0).default(0),
+  displayOrder: z.number().int().min(0).max(10000).default(0),
   sectionName: z.string().max(100).optional(),
 });
 
@@ -83,8 +84,8 @@ const UpdateReportInput = CompanyIdInput.extend({
 });
 
 const DateQueryInput = CompanyIdInput.extend({
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato YYYY-MM-DD requerido' }),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato YYYY-MM-DD requerido' }),
+  startDate: IsoDateString,
+  endDate: IsoDateString,
 });
 
 // ─── Line-Group Mappings ─────────────────────────────────────────────────────
@@ -98,14 +99,15 @@ const CreateLineGroupMappingInput = CompanyIdInput.extend({
 });
 
 const UpdateLineGroupMappingInput = CompanyIdInput.extend({
-  mappingId: z.string().min(1),
+  // mappingId segun backend es numerico (verificado en routes/line-group-mappings.ts).
+  mappingId: z.number().int().positive(),
   line: z.string().min(1).optional(),
   group: z.string().min(1).optional(),
   description: z.string().optional(),
 });
 
 const DeleteLineGroupMappingInput = CompanyIdInput.extend({
-  mappingId: z.string().min(1),
+  mappingId: z.number().int().positive(),
   confirm: z.boolean().optional(),
 });
 
@@ -129,14 +131,14 @@ const CreateCostCenterMappingInput = CompanyIdInput.extend({
 });
 
 const UpdateCostCenterMappingInput = CompanyIdInput.extend({
-  mappingId: z.string().min(1),
+  mappingId: z.number().int().positive(),
   centerCode: z.string().min(1).optional(),
   subCenterCode: z.string().optional(),
   name: z.string().min(1).optional(),
 });
 
 const DeleteCostCenterMappingInput = CompanyIdInput.extend({
-  mappingId: z.string().min(1),
+  mappingId: z.number().int().positive(),
   confirm: z.boolean().optional(),
 });
 
@@ -554,10 +556,20 @@ const DeleteCostCenterReportTool: ToolDefinition = {
 const ExecuteCostCenterReportTool: ToolDefinition = {
   name: 'reportia_cost_center_report_execute',
   description:
-    'Ejecuta un reporte aplicando sus operaciones sobre los movimientos del rango [startDate, endDate] (YYYY-MM-DD).',
-  inputSchema: ExecuteReportInput,
+    'Ejecuta un reporte aplicando sus operaciones sobre los movimientos del rango [startDate, endDate] (YYYY-MM-DD). Puede ser costoso (consulta SQL sobre millones de filas). DESTRUCTIVA: requiere { confirm: true }.',
+  inputSchema: ExecuteReportInput.extend({
+    confirm: z.boolean().optional(),
+  }),
+  destructive: true,
   handler: async (input, ctx) => {
     try {
+      assertConfirmed(input, 'reportia_cost_center_report_execute');
+      if (input.startDate > input.endDate) {
+        return fail({
+          code: 'INVALID_DATE_RANGE',
+          message: `startDate (${input.startDate}) debe ser <= endDate (${input.endDate})`,
+        });
+      }
       const companyId = resolveCompanyId(input, ctx);
       const data = await ctx.client.call(
         `/api/companies/${companyId}/cost-center-reports/${input.reportId}/execute`,
@@ -572,10 +584,15 @@ const ExecuteCostCenterReportTool: ToolDefinition = {
 
 const DuplicateCostCenterReportTool: ToolDefinition = {
   name: 'reportia_cost_center_report_duplicate',
-  description: 'Duplica un reporte existente con un nuevo nombre (3-255 caracteres).',
-  inputSchema: DuplicateReportInput,
+  description:
+    'Duplica un reporte existente con un nuevo nombre (3-255 caracteres). Crea un reporte nuevo en el backend. DESTRUCTIVA: requiere { confirm: true }.',
+  inputSchema: DuplicateReportInput.extend({
+    confirm: z.boolean().optional(),
+  }),
+  destructive: true,
   handler: async (input, ctx) => {
     try {
+      assertConfirmed(input, 'reportia_cost_center_report_duplicate');
       const companyId = resolveCompanyId(input, ctx);
       const data = await ctx.client.call(
         `/api/companies/${companyId}/cost-center-reports/${input.reportId}/duplicate`,
@@ -595,6 +612,12 @@ const ExportCostCenterReportExcelTool: ToolDefinition = {
   inputSchema: ExecuteReportInput,
   handler: async (input, ctx) => {
     try {
+      if (input.startDate > input.endDate) {
+        return fail({
+          code: 'INVALID_DATE_RANGE',
+          message: `startDate (${input.startDate}) debe ser <= endDate (${input.endDate})`,
+        });
+      }
       const companyId = resolveCompanyId(input, ctx);
       const download = await ctx.client.download(
         `/api/companies/${companyId}/cost-center-reports/${input.reportId}/export/excel`,
@@ -618,6 +641,12 @@ const ExportCostCenterReportPdfTool: ToolDefinition = {
   inputSchema: ExecuteReportInput,
   handler: async (input, ctx) => {
     try {
+      if (input.startDate > input.endDate) {
+        return fail({
+          code: 'INVALID_DATE_RANGE',
+          message: `startDate (${input.startDate}) debe ser <= endDate (${input.endDate})`,
+        });
+      }
       const companyId = resolveCompanyId(input, ctx);
       const download = await ctx.client.download(
         `/api/companies/${companyId}/cost-center-reports/${input.reportId}/export/pdf`,

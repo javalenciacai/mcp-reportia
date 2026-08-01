@@ -62,16 +62,19 @@ const getSettingsTool: ToolDefinition<typeof GetSettingsInput> = {
 const PatchSettingsInput = z.object({
   companyId: z.number().int().positive().optional(),
   settings: z.record(z.unknown()).describe('Objeto CompanySettings parcial con los campos a actualizar.'),
+  confirm: z.boolean().optional(),
 });
 
 const patchSettingsTool: ToolDefinition<typeof PatchSettingsInput> = {
   name: 'reportia_company_settings_update',
   description:
-    'Actualiza parcialmente la configuracion de una empresa (PATCH /api/companies/:id/settings).',
+    'Actualiza parcialmente la configuración de una empresa (PATCH /api/companies/:id/settings). DESTRUCTIVA: requiere { confirm: true }.',
   inputSchema: PatchSettingsInput,
+  destructive: true,
   handler: async (input, ctx) => {
     try {
       const id = resolveCompanyId(input, ctx);
+      assertConfirmed(input, 'reportia_company_settings_update');
       const data = await ctx.client.call<unknown>(`/api/companies/${id}/settings`, {
         method: 'PATCH',
         body: input.settings,

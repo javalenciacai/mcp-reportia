@@ -47,8 +47,9 @@ describe('registro de salesperson-invoice tools', () => {
       'reportia_salesperson_options_list',
       'reportia_invoices_list',
       'reportia_invoice_settings_get',
-      'reportia_invoice_settings_create',
-      'reportia_invoice_settings_update',
+      // reportia_invoice_settings_create/update son DESTRUCTIVAS ahora
+      // (revisado en round 1 del judgment-day): pueden sobreescribir
+      // configuracion sensible de facturacion.
     ];
     for (const name of nonDestructive) {
       const t = findTool(name);

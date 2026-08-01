@@ -3,6 +3,30 @@
  * lanzar. Las herramientas los traducen a payloads JSON para que el
  * LLM que invoca el MCP reciba contexto útil.
  */
+
+/**
+ * Redactor de campos sensibles aplicado a `details` antes de exponerlo
+ * al LLM. Evita dependencias circulares con tool-base.ts replicando
+ * la logica minima aqui (los callers en tool-base.fail ya redactan;
+ * esto cubre ReportiaError.toJSON()).
+ */
+function redactSensitive(value: unknown, depth = 0): unknown {
+  if (depth > 4 || value === null || value === undefined) return value;
+  if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
+  if (typeof value === 'object') {
+    const SENSITIVE = /^(password|passwd|secret|token|apikey|api_key|authorization|cookie|set-cookie|x-api-key|smtppassword|smtp_password|access_token|refresh_token|sessionid|sid|jwt|bearer|private[_-]?key)$/i;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SENSITIVE.test(k) ? '[REDACTED]' : redactSensitive(v, depth + 1);
+    }
+    return out;
+  }
+  if (typeof value === 'string' && /^(authorization|cookie|set-cookie):/im.test(value)) {
+    return '[REDACTED-HEADER]';
+  }
+  return value;
+}
+
 export class ReportiaError extends Error {
   readonly status: number | undefined;
   readonly code: string;
@@ -31,7 +55,7 @@ export class ReportiaError extends Error {
       code: this.code,
       status: this.status,
       endpoint: this.endpoint,
-      details: this.details,
+      details: redactSensitive(this.details),
     };
   }
 }
@@ -59,6 +83,12 @@ export class RowLimitError extends ReportiaError {
   constructor(message: string, endpoint: string, totalRows?: number, details?: unknown) {
     super({ message, code: 'ROW_LIMIT_EXCEEDED', status: 422, endpoint, details });
     this.totalRows = totalRows;
+  }
+}
+
+export class UnprocessableError extends ReportiaError {
+  constructor(message: string, endpoint = '', details?: unknown) {
+    super({ message, code: 'UNPROCESSABLE_ENTITY', status: 422, endpoint, details });
   }
 }
 

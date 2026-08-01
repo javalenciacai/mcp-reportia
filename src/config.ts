@@ -16,12 +16,27 @@ const ConfigSchema = z.object({
 export type AppConfig = z.infer<typeof ConfigSchema> & { authMode: 'bearer' | 'session' };
 export class ConfigError extends Error { constructor(message: string) { super(message); this.name = 'ConfigError'; } }
 function val(env: NodeJS.ProcessEnv, key: string): string | undefined { const v = env[key]; return v === undefined || v === '' ? undefined : v; }
+function parseIntStrict(value: string | undefined, fallback: number): number {
+  if (value === undefined || value === '') return fallback;
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const base = val(env, 'REPORTIA_BASE_URL');
   if (!base) throw new ConfigError('REPORTIA_BASE_URL es obligatorio.');
-  const raw = { baseUrl: base.replace(/\/+$/, ''), email: val(env,'REPORTIA_EMAIL'), password: val(env,'REPORTIA_PASSWORD'), token: val(env,'REPORTIA_TOKEN'), companyId: val(env,'REPORTIA_COMPANY_ID') === undefined ? undefined : Number(val(env,'REPORTIA_COMPANY_ID')), timeoutMs: Number(val(env,'REPORTIA_TIMEOUT_MS') ?? 30000), downloadDir: path.resolve(val(env,'REPORTIA_DOWNLOAD_DIR') ?? path.join(process.cwd(),'downloads')), userAgent: val(env,'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0' };
+  const raw = {
+    baseUrl: base.replace(/\/+$/, ''),
+    email: val(env, 'REPORTIA_EMAIL'),
+    password: val(env, 'REPORTIA_PASSWORD'),
+    token: val(env, 'REPORTIA_TOKEN'),
+    companyId: val(env, 'REPORTIA_COMPANY_ID') === undefined ? undefined : Number(val(env, 'REPORTIA_COMPANY_ID')),
+    timeoutMs: parseIntStrict(val(env, 'REPORTIA_TIMEOUT_MS'), 30000),
+    downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(process.cwd(), 'downloads')),
+    userAgent: val(env, 'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0',
+  };
   const parsed = ConfigSchema.safeParse(raw);
-  if (!parsed.success) throw new ConfigError(parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('\n'));
+  if (!parsed.success) throw new ConfigError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n'));
   return { ...parsed.data, authMode: parsed.data.token ? 'bearer' : 'session' };
 }
 export function buildTestConfig(overrides: Partial<AppConfig> = {}): AppConfig {
