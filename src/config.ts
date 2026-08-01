@@ -11,6 +11,7 @@ const ConfigSchema = z.object({
   timeoutMs: z.number().int().positive().default(30000),
   downloadDir: z.string().min(1),
   userAgent: z.string().min(1).default('mcp-reportia/0.1.0'),
+  maxDownloadBytes: z.number().int().positive().default(100 * 1024 * 1024),
 }).refine((v) => Boolean(v.token) || Boolean(v.email && v.password), { message: 'Configura REPORTIA_TOKEN o REPORTIA_EMAIL + REPORTIA_PASSWORD.' });
 
 export type AppConfig = z.infer<typeof ConfigSchema> & { authMode: 'bearer' | 'session' };
@@ -34,6 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     timeoutMs: parseIntStrict(val(env, 'REPORTIA_TIMEOUT_MS'), 30000),
     downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(process.cwd(), 'downloads')),
     userAgent: val(env, 'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0',
+    maxDownloadBytes: parseIntStrict(val(env, 'REPORTIA_MAX_DOWNLOAD_BYTES'), 100 * 1024 * 1024),
   };
   const parsed = ConfigSchema.safeParse(raw);
   if (!parsed.success) throw new ConfigError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n'));

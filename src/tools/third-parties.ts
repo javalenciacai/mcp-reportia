@@ -6,7 +6,7 @@
  */
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool-base.js';
-import { ok, fail, resolveCompanyId } from '../tool-base.js';
+import { ok, fail, resolveCompanyId, IsoDateString } from '../tool-base.js';
 
 const CompanyIdInput = z.object({
   companyId: z.number().int().positive().optional(),
@@ -38,7 +38,7 @@ const GetThirdPartyByNitInput = CompanyIdInput.extend({
 const PortfolioBalanceInput = CompanyIdInput.extend({
   // Cap en 500 NITs para prevenir DoS por listas enormes.
   nits: z.array(z.string().min(1).max(20)).min(1).max(500),
-  cutoffDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato de fecha inválido (YYYY-MM-DD)' }),
+  cutoffDate: IsoDateString,
 });
 
 export const thirdPartyTools: ToolDefinition<any>[] = [

@@ -68,11 +68,16 @@ const DEFAULT_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
 /**
  * Sanitiza un nombre de archivo propuesto para una descarga, evitando
- * path traversal. Devuelve un nombre "basename" seguro o lanza si el
- * resultado seria inutil.
+ * path traversal y caracteres prohibidos en Windows. Devuelve un nombre
+ * "basename" seguro o lanza si el resultado seria inutil.
  */
 function safeBasename(name: string, tsPrefix: string): string {
-  const base = path.basename(name);
+  // Sanitiza chars prohibidos en Windows: < > : " | ? * y controles.
+  // Tambien colapsa separadores para que no sobrevivan barras/backslash.
+  const cleaned = String(name)
+    .replace(/[\x00-\x1f\x7f<>:"|?*]/g, '_')
+    .replace(/[/\\]+/g, '_');
+  const base = path.basename(cleaned);
   if (!base || base === '.' || base === '..') {
     throw new ReportiaError({
       message: 'Nombre de archivo propuesto no es seguro',
@@ -288,8 +293,9 @@ export function createClient(config: AppConfig): ReportiaClient {
     }
 
     // Cap de tamano: previene OOM si el backend devuelve un export
-    // inesperadamente grande (Juez B: B4 + B12).
-    const maxBytes = DEFAULT_MAX_DOWNLOAD_BYTES;
+    // inesperadamente grande (Juez B: B4 + B12). Configurable via
+    // REPORTIA_MAX_DOWNLOAD_BYTES en config.
+    const maxBytes = config.maxDownloadBytes;
     if (r.body.length > maxBytes) {
       throw new ReportiaError({
         message: `Descarga excede el tamano maximo permitido (${maxBytes} bytes; recibidos ${r.body.length})`,
@@ -339,6 +345,9 @@ export function createClient(config: AppConfig): ReportiaClient {
         /* cerrar no debe fallar */
       }
     }
+    // Limpia estado local para que close() sea idempotente y consistente
+    // con reportia_logout (que ya invoca invalidateSession()).
+    invalidateSession();
     try {
       await agent.close();
     } catch {

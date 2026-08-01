@@ -13,15 +13,15 @@
  */
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool-base.js';
-import { ok, fail, resolveCompanyId } from '../tool-base.js';
+import { ok, fail, resolveCompanyId, IsoDateString } from '../tool-base.js';
 
 // Input schemas
 
 /** Schema común para filtros de comisión que aceptan la API. */
 const CommissionFiltersInput = z.object({
   companyId: z.number().int().positive().optional(),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  startDate: IsoDateString.optional(),
+  endDate: IsoDateString.optional(),
   thirdPartyFilter: z.string().optional(),
   salespersonFilter: z.string().optional(),
   paymentStatus: z.enum(['all', 'paid', 'pending']).optional(),

@@ -14,10 +14,14 @@ function redactSensitive(value: unknown, depth = 0): unknown {
   if (depth > 4 || value === null || value === undefined) return value;
   if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
   if (typeof value === 'object') {
-    const SENSITIVE = /^(password|passwd|secret|token|apikey|api_key|authorization|cookie|set-cookie|x-api-key|smtppassword|smtp_password|access_token|refresh_token|sessionid|sid|jwt|bearer|private[_-]?key)$/i;
+    const EXACT_SENSITIVE = /^(password|passwd|secret|token|apikey|api_key|authorization|cookie|set-cookie|x-api-key|smtppassword|smtp_password|access_token|refresh_token|sessionid|sid|jwt|bearer|private_key|privatekey)$/i;
+    const PREFIX_SENSITIVE = /^(password|secret|token|apikey|api[-_]key|access[-_]token|refresh[-_]token|private[-_]?key)[-_]?$/i;
+    const HEADER_SENSITIVE = /^(authorization|set-cookie|x-api-key)$/i;
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = SENSITIVE.test(k) ? '[REDACTED]' : redactSensitive(v, depth + 1);
+      out[k] = (EXACT_SENSITIVE.test(k) || PREFIX_SENSITIVE.test(k) || HEADER_SENSITIVE.test(k))
+        ? '[REDACTED]'
+        : redactSensitive(v, depth + 1);
     }
     return out;
   }

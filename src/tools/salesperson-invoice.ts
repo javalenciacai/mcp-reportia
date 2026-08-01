@@ -34,6 +34,7 @@ import {
   fail,
   resolveCompanyId,
   assertConfirmed,
+  IsoDateString,
 } from '../tool-base.js';
 
 const CompanyIdInput = z.object({
@@ -73,8 +74,8 @@ const ListSalespersonOptionsInput = CompanyIdInput;
 // =====================================================================
 
 const InvoicesQueryInput = CompanyIdInput.extend({
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  startDate: IsoDateString.optional(),
+  endDate: IsoDateString.optional(),
   nit: z.string().min(1).max(50).optional(),
   numeroDocumento: z.string().min(1).max(100).optional(),
   tipoComprobante: z.string().min(1).max(10).optional(),
@@ -89,6 +90,7 @@ const GetInvoiceSettingsInput = CompanyIdInput;
 
 const WriteInvoiceSettingsInput = CompanyIdInput.extend({
   settings: z.record(z.unknown()),
+  confirm: z.boolean().optional(),
 });
 
 // =====================================================================
@@ -293,11 +295,13 @@ const getInvoiceSettingsTool: ToolDefinition<typeof GetInvoiceSettingsInput> = {
 const createOrUpdateInvoiceSettingsTool: ToolDefinition<typeof WriteInvoiceSettingsInput> = {
   name: 'reportia_invoice_settings_create',
   description:
-    'Crea o reemplaza la configuracion de facturacion (POST). El body libre es un record<string, unknown> aceptado por la API.',
+    'Crea o reemplaza la configuracion de facturacion (POST). El body libre es un record<string, unknown> aceptado por la API. DESTRUCTIVA: requiere { confirm: true }.',
   inputSchema: WriteInvoiceSettingsInput,
+  destructive: true,
   handler: async (input, ctx) => {
     try {
       const companyId = resolveCompanyId(input, ctx);
+      assertConfirmed(input, 'reportia_invoice_settings_create');
       const data = await ctx.client.call<unknown>(
         `/api/companies/${companyId}/invoice-settings`,
         { method: 'POST', body: input.settings },
@@ -312,11 +316,13 @@ const createOrUpdateInvoiceSettingsTool: ToolDefinition<typeof WriteInvoiceSetti
 const patchInvoiceSettingsTool: ToolDefinition<typeof WriteInvoiceSettingsInput> = {
   name: 'reportia_invoice_settings_update',
   description:
-    'Actualiza parcialmente la configuracion de facturacion (PATCH). El body libre es un record<string, unknown> aceptado por la API.',
+    'Actualiza parcialmente la configuracion de facturacion (PATCH). El body libre es un record<string, unknown> aceptado por la API. DESTRUCTIVA: requiere { confirm: true }.',
   inputSchema: WriteInvoiceSettingsInput,
+  destructive: true,
   handler: async (input, ctx) => {
     try {
       const companyId = resolveCompanyId(input, ctx);
+      assertConfirmed(input, 'reportia_invoice_settings_update');
       const data = await ctx.client.call<unknown>(
         `/api/companies/${companyId}/invoice-settings`,
         { method: 'PATCH', body: input.settings },
