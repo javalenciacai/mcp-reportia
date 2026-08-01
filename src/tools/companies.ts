@@ -3,7 +3,7 @@
  */
 import { z } from 'zod';
 import type { ToolDefinition } from '../tool-base.js';
-import { ok, fail, resolveCompanyId } from '../tool-base.js';
+import { ok, fail, resolveCompanyId, assertConfirmed } from '../tool-base.js';
 
 const ListInput = z.object({});
 
@@ -96,13 +96,8 @@ const activateTool: ToolDefinition<typeof ActivateInput> = {
   destructive: true,
   handler: async (input, ctx) => {
     try {
-      if (input.confirm !== true) {
-        return fail({
-          code: 'GUARD_REJECTED',
-          message: 'Operacion destructiva. Repite con confirm=true.',
-        });
-      }
       const id = resolveCompanyId(input, ctx);
+      assertConfirmed(input, 'reportia_company_activate');
       const data = await ctx.client.call<unknown>(`/api/companies/${id}/activate`, {
         method: 'POST',
       });

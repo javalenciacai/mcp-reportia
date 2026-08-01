@@ -117,8 +117,10 @@ const DeleteAccountMappingTool: ToolDefinition<typeof DeleteAccountMappingInput>
   destructive: true,
   handler: async (input, ctx) => {
     try {
-      assertConfirmed(input, 'reportia_account_mapping_delete');
+      // Primero resolvemos companyId para que un MISSING_COMPANY_ID
+      // tenga precedencia sobre el GUARD_REJECTED si faltan ambos.
       resolveCompanyId(input, ctx);
+      assertConfirmed(input, 'reportia_account_mapping_delete');
       const data = await ctx.client.call(`/api/account-mappings/${input.mappingId}`, {
         method: 'DELETE',
       });

@@ -98,7 +98,9 @@ const WriteInvoiceSettingsInput = CompanyIdInput.extend({
 const SendInvoiceEmailInput = z.object({
   invoiceId: z.string().min(1).max(200),
   companyId: z.number().int().positive().optional(),
-  email: z.string().min(1).max(200),
+  // Validamos formato email en cliente para evitar llamadas a la API
+  // que fallarian por formato. La API revalidara de todos modos.
+  email: z.string().email().max(200),
   customMessage: z.string().max(5000).optional(),
   portfolioCutoffDate: z
     .string()

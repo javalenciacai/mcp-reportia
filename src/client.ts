@@ -105,7 +105,7 @@ export function createClient(config: AppConfig): ReportiaClient {
   function buildHeaders(extra?: Record<string, string>): Record<string, string> {
     const h: Record<string, string> = {
       Accept: 'application/json',
-      'User-Agent': config.userAgent,
+      'User-Agent': sanitizeUserAgent(config.userAgent),
     };
     if (config.authMode === 'bearer' && config.token) {
       h.Authorization = `Bearer ${config.token}`;
@@ -305,6 +305,18 @@ export function createClient(config: AppConfig): ReportiaClient {
 function stringHeader(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined;
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * Sanitiza un valor de cabecera HTTP eliminando CR/LF para impedir
+ * inyeccion de cabeceras cuando el `User-Agent` viene de env vars
+ * (caso extremo pero trivial de explotar contra un cliente HTTP
+ * mal implementado). Si la cadena queda vacia, usa el default.
+ */
+function sanitizeUserAgent(value: string): string {
+  const cleaned = value.replace(/[\r\n\t\v\f\0]/g, '').trim();
+  if (!cleaned) return 'mcp-reportia/' + CLIENT_VERSION;
+  return cleaned.slice(0, 256);
 }
 
 function mapHttpError(status: number, endpoint: string, msg: string, json: unknown): ReportiaError {

@@ -23,9 +23,15 @@ const SearchThirdPartiesInput = CompanyIdInput.extend({
   limit: z.number().int().min(1).max(1000).optional().default(50),
 });
 
-// Get by NIT
+// Get by NIT.
+// NITs en Colombia son alfanumericos (puede terminar en verificacion digito).
+// Restringimos a un alfabeto seguro para evitar inyeccion en la URL del path.
 const GetThirdPartyByNitInput = CompanyIdInput.extend({
-  nit: z.string().min(5),
+  nit: z
+    .string()
+    .min(5)
+    .max(20)
+    .regex(/^[A-Za-z0-9-]+$/, { message: 'NIT solo permite letras, digitos y guion.' }),
 });
 
 // Portfolio balance (POST /third-parties/portfolio-balance con nits[] y cutoffDate)
@@ -81,9 +87,10 @@ export const thirdPartyTools: ToolDefinition<any>[] = [
     handler: async (input, ctx) => {
       try {
         const companyId = resolveCompanyId(input, ctx);
-        const data = await ctx.client.call(`/api/companies/${companyId}/third-parties/nit/${input.nit}`, {
-          method: 'GET',
-        });
+        const data = await ctx.client.call(
+          `/api/companies/${companyId}/third-parties/nit/${encodeURIComponent(input.nit)}`,
+          { method: 'GET' },
+        );
         return ok(data);
       } catch (err) {
         return fail(err);
