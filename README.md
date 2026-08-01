@@ -273,8 +273,21 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 - **Subida de archivos (`multipart/form-data`):** el cliente HTTP está preparado (`FormData` desde `undici`) pero las tools actuales **no exponen endpoints de upload** (no hay POST/PUT con `multipart/form-data`). Sí se exponen dos tools **read-only** sobre el histórico y estado de uploads existentes: `reportia_uploads_history_list` (GET `/api/companies/:companyId/upload-history`) y `reportia_upload_status_get` (GET `/api/upload/:uploadId/status`). Si Reportia añade en el futuro endpoints de carga, basta con añadir un ToolDefinition que use `ctx.client.call(..., { formData })`.
 - **Sin caché persistente:** cada invocación vuelve a llamar a la API. El LLM debe sentirse libre de hacer `tools/list` cuando lo necesite.
 - **Errores HTTP:** se traducen a tipos estructurados (`AUTH_ERROR`, `NOT_FOUND`, `VALIDATION_ERROR`, `ROW_LIMIT_EXCEEDED`, `NETWORK_ERROR`, `TIMEOUT`). El cliente nunca expone secretos en el mensaje.
-- **Smoke test offline:** `npm run test:smoke` arranca el servidor con `REPORTIA_BASE_URL=http://127.0.0.1:9` (puerto cerrado). No hace llamadas reales; solo valida el handshake MCP. Para pruebas integradas reales, configura `REPORTIA_BASE_URL` con un servidor Reportia accesible y desactiva el smoke.
+- **Smoke test offline:** `npm run test:smoke` arranca el servidor con `REPORTIA_BASE_URL=http://127.0.0.1:9` (puerto cerrado). No hace llamadas reales; solo valida el handshake MCP. Para pruebas integradas reales, usa `npm run test:integration` apuntando a un servidor Reportia accesible.
 - **Sin reintentos automáticos:** ante 5xx el servidor reporta error; el LLM puede reintentar manualmente.
+
+## Seguridad
+
+El servidor está diseñado para minimizar superficie de ataque cuando es invocado por un LLM:
+
+- **No hay herramienta HTTP genérica**: las tools son curadas por dominio (66 endpoints específicos). El LLM no puede apuntar el cliente a una URL arbitraria ni a una IP interna.
+- **Validación Zod en cada input**: ningún handler llega a la red sin antes pasar por un esquema que rechaza tipos, rangos y formatos inválidos.
+- **Tools destructivas requieren `confirm: true` literal**: se declaran con `destructive: true` y verifican con `assertConfirmed(...)` antes de cualquier llamada HTTP. Si falta `confirm`, devuelven `GUARD_REJECTED` **sin tocar la API**. El LLM debe pedirle al usuario confirmación explícita antes de invocarlas.
+- **Interpolación segura en URLs**: los IDs numéricos (companyId, mappingId, reportId, runId, uploadId) son validados como `z.number().int().positive()` antes de la interpolación. Los strings de path (NIT, invoiceId, mappingId de líneas/centros) usan `encodeURIComponent` y/o se restringen a un alfabeto seguro (`[A-Za-z0-9-]+` para NITs).
+- **Cabeceras HTTP saneadas**: el `User-Agent` configurable vía `REPORTIA_USER_AGENT` se sanitiza contra CRLF (header injection) en `src/client.ts:sanitizeUserAgent`.
+- **Sin secretos en logs**: los mensajes de error exponen el endpoint y el código HTTP, pero nunca el token, la cookie, la contraseña ni el cuerpo completo del body. La cookie `connect.sid` se mantiene en memoria del cliente y nunca aparece en respuestas JSON.
+- **Login con cookie persistente**: el modo sesión reutiliza la cookie `connect.sid` recibida de `/api/auth/login` y la rota solo si Reportia la renueva; nunca se escribe a disco.
+- **Tests de regresión de seguridad** (`tests/security.test.ts`): 16 tests que verifican que ninguna tool destructiva omite `confirm`, que ningún esquema acepta inputs peligrosos, y que el orden de guards (resolveCompanyId → assertConfirmed) prefiere errores informativos sobre GUARD_REJECTED cuando el problema es de configuración.
 
 ---
 
@@ -349,9 +362,18 @@ npm test
 
 # Smoke de protocolo MCP sobre stdio (sin credenciales reales)
 npm run test:smoke
+
+# Smoke de integracion contra un servidor Reportia REAL
+# (configura REPORTIA_BASE_URL y REPORTIA_TOKEN en tu entorno antes).
+npm run build
+REPORTIA_BASE_URL=https://reportia.example.com \
+REPORTIA_TOKEN=<tu-token> \
+  npm run test:integration
 ```
 
 El smoke test (`scripts/jsonrpc-smoke.mjs`) lanza `dist/server.js` como subproceso, le envía `initialize` + `tools/list` por JSON-RPC newline-delimited y verifica que la respuesta contenga al menos una herramienta. **No** realiza llamadas HTTP contra Reportia (apunta a `127.0.0.1:9`).
+
+El test de integración (`scripts/integration-smoke.mjs`) sí habla con un servidor Reportia real: hace `initialize`, `tools/list`, llama a `reportia_health` (que hace ping a `/api/health`) y a `reportia_whoami` (que debe devolver `AUTH_ERROR` con un token inválido para validar el manejo de errores). Útil para verificar que la versión desplegada sigue siendo compatible con el backend real.
 
 Si solo quieres validar que la build no está rota:
 
