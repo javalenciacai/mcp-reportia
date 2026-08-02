@@ -51,14 +51,62 @@ npx skills add javalenciacai/mcp-reportia --skill reportia-mcp-usage
 
 Este repo publica automáticamente a **npm** y al **MCP Registry oficial** cuando se pushea un tag `v*` a `main`. La indexación en **skills.sh** es automática (scrapeo de GitHub).
 
-### Configuración inicial (una sola vez, ya documentada)
+### Configuración inicial (una sola vez)
+
+#### Opción elegida: npm Trusted Publishing (OIDC)
+
+La configuración vive en la **página del paquete** (no en `/settings/james.valencia/security` — esa URL es para tokens tradicionales).
+
+1. Abre **https://www.npmjs.com/package/@james.valencia/mcp-reportia/settings** (logueado como `james.valencia` en el navegador).
+2. En la sección **"Trusted Publisher"**, click en **"Add a trusted publisher"** (o "GitHub Actions" según el wording de tu versión de npmjs.com).
+3. Completa el formulario con estos valores **exactos** (la doc oficial los lista así):
+
+   | Campo | Valor |
+   | ----- | ----- |
+   | Provider | **GitHub Actions** |
+   | Organization or user | `javalenciacai` |
+   | Repository | `mcp-reportia` |
+   | Workflow filename | `publish.yml` (solo el nombre, sin la ruta `.github/workflows/`) |
+   | Environment name | **(vacío)** — el workflow no usa GitHub Environments |
+   | Allowed actions | **npm publish** (al menos uno) |
+
+4. Click **"Add"** o **"Save"**. npm NO valida la configuración al guardar, pero el workflow fallará en runtime si los datos no coinciden exactamente.
+
+#### Subir el workflow a Node 24 (necesario para Trusted Publishing)
+
+Trusted Publishing requiere `npm >= 11.5.1`, que viene incluido en **Node.js 24**. El workflow actual usa Node 22 (npm 10.9) — fallará con `ENEEDAUTH` aunque el publisher esté bien configurado.
+
+**Lo que voy a hacer yo cuando confirmes el paso 1**: actualizar el workflow a Node 24, hacer commit, re-crear el tag v0.1.2 apuntando al nuevo commit, re-disparar el publish.
+
+#### Verificación rápida de que está bien
+
+Re-dispara manualmente el workflow y mira el log del job `publish-npm`:
+```bash
+gh workflow run Publish --ref v0.1.2
+gh run watch --exit-status
+```
+
+Si dice `OK: @james.valencia/mcp-reportia@0.1.2 publicado` en el último step, está funcionando. Si vuelve a fallar, mandame el output del step "Publish" (sin el token).
+
+#### Estado actual de los requisitos
 
 | Plataforma | Requisito | Estado |
 | ---------- | --------- | ------ |
-| **npm Trusted Publishing** | https://www.npmjs.com/settings/james.valencia/security → activar provider "GitHub Actions" para `javalenciacai/mcp-reportia` con workflow `publish.yml` | Pendiente (1 vez) |
+| **npm Trusted Publishing** | Configurar publisher en `/package/@james.valencia/mcp-reportia/settings` con `javalenciacai/mcp-reportia` + `publish.yml` | **Tu turno** |
+| **Workflow Node 24** | Subir a Node 24 (lo hago yo tras tu confirmación) | **Pendiente** |
 | **MCP Registry** | Ninguno — usa `github-oidc` que firma el workflow automáticamente | Listo |
 | **skills.sh** | Ninguno — scraping automático | Listo |
 | **GitHub Release** | Permiso `contents: write` ya configurado en el workflow | Listo |
+
+### Plan al terminar tu paso 1
+
+Voy a ejecutar en este orden (no requiere tu input):
+1. Cambiar `node-version: '22'` → `'24'` en ambos jobs del workflow publish
+2. Verificar con `npm test && npm run build` local
+3. Commit + push
+4. Re-crear el tag v0.1.2 apuntando al nuevo commit
+5. Observar el workflow `Publish` hasta `publish-npm` exitoso
+6. Reportarte el resultado final (versión en npm + GitHub Release creado)
 
 ### Hacer un release
 
