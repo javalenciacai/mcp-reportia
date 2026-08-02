@@ -17,14 +17,15 @@ Servidor **[MCP](https://modelcontextprotocol.io/)** (Model Context Protocol) in
 - [Instalación y uso rápido](#instalación-y-uso-rápido)
 - [Variables de entorno](#variables-de-entorno)
 - [Configuración en clientes MCP](#configuración-en-clientes-mcp)
+- [Flujo de release](#flujo-de-release)
 - [Herramientas disponibles](#herramientas-disponibles)
 - [Limitaciones conocidas](#limitaciones-conocidas)
+- [Seguridad](#seguridad)
 - [Rutas cubiertas y omitidas](#rutas-cubiertas-y-omitidas)
 - [Desarrollo local](#desarrollo-local)
 - [Pruebas](#pruebas)
 - [Inspección con MCP Inspector](#inspección-con-mcp-inspector)
 - [Arquitectura interna](#arquitectura-interna)
-- [Seguridad](#seguridad)
 - [Licencia](#licencia)
 
 ---
@@ -43,6 +44,54 @@ Instalación via skills.sh:
 ```bash
 npx skills add javalenciacai/mcp-reportia --skill reportia-mcp-usage
 ```
+
+---
+
+## Flujo de release
+
+Este repo publica automáticamente a **npm** y al **MCP Registry oficial** cuando se pushea un tag `v*` a `main`. La indexación en **skills.sh** es automática (scrapeo de GitHub).
+
+### Configuración inicial (una sola vez, ya documentada)
+
+| Plataforma | Requisito | Estado |
+| ---------- | --------- | ------ |
+| **npm Trusted Publishing** | https://www.npmjs.com/settings/james.valencia/security → activar provider "GitHub Actions" para `javalenciacai/mcp-reportia` con workflow `publish.yml` | Pendiente (1 vez) |
+| **MCP Registry** | Ninguno — usa `github-oidc` que firma el workflow automáticamente | Listo |
+| **skills.sh** | Ninguno — scraping automático | Listo |
+| **GitHub Release** | Permiso `contents: write` ya configurado en el workflow | Listo |
+
+### Hacer un release
+
+```bash
+# 1. Bump de version (esto actualiza package.json y server.json automaticamente)
+cd /c/james/mcp-reportia
+npm version patch    # 0.1.1 -> 0.1.2 (o minor/major)
+
+# 2. Push del commit + tag a GitHub
+git push origin main --follow-tags
+# (npm version ya crea el tag v0.1.2 y lo pushea junto con el commit)
+```
+
+GitHub Actions se dispara automáticamente:
+
+1. **Job `validate`** — typecheck + test + build + smoke. Verifica que `package.json.version` y `server.json.version` coincidan con el tag.
+2. **Job `publish-npm`** — publica a npm via OIDC (sin tokens de larga duración).
+3. **Job `publish-mcp-registry`** — publica `server.json` al MCP Registry oficial.
+4. **Job `release`** — crea un GitHub Release con notas auto-generadas.
+
+### Publicar manualmente (sin tag)
+
+Si necesitas un release fuera del flujo normal, ve a GitHub → Actions → "Publish" → "Run workflow" y opcionalmente pasa un `version` override.
+
+### Rollback
+
+Si necesitas revertir una versión publicada a npm (dentro de 72h):
+
+```bash
+npm unpublish @james.valencia/mcp-reportia@0.1.2
+```
+
+Después de 72h no es posible; debes publicar un patch. El MCP Registry no soporta rollback; hay que publicar una versión superior con la corrección.
 
 ---
 

@@ -1,0 +1,198 @@
+# Workflow: Publish - npm + MCP Registry + skills.sh
+# Trigger: push de un tag v* (ej: v0.1.1, v1.0.0).
+# Objetivo: publicar el paquete a npm y al MCP Registry oficial.
+#
+# FLUJO DE RELEASE:
+#   1. Bump version en package.json + server.json (manualmente o con npm version)
+#   2. Commit + push a main
+#   3. git tag v<X>.<Y>.<Z>
+#   4. git push origin v<X>.<Y>.<Z>
+#   5. Este workflow se dispara, valida, publica.
+#
+# CONFIGURACION PREVIA REQUERIDA (una sola vez):
+#   - npm: configurar Trusted Publishing en https://www.npmjs.com/settings/james.valencia/security
+#     (Provider: GitHub Actions, Repo: javalenciacai/mcp-reportia, Workflow: publish.yml)
+#   - MCP Registry: usar github-oidc (sin setup manual, usa el OIDC de GitHub Actions)
+#   - skills.sh: NO requiere accion (scrapea GitHub automaticamente)
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (ej: 0.1.2). Si vacio, usa la del package.json.'
+        required: false
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Job 1: validar todo antes de publicar (mismo bloque que CI)
+  # ---------------------------------------------------------------------
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      should_publish: ${{ steps.gate.outputs.should_publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + test + build + smoke
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+          npm run test:smoke
+
+      # Si el workflow fue disparado por tag, leer la version del tag.
+      # Si fue disparado manualmente, usar la del package.json.
+      - name: Determinar version a publicar
+        id: bump
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${{ inputs.version }}" }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "Publicando version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: "Gate - verificar package.json vs version derivada"
+        id: gate
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          if [[ "$PKG" != "${{ steps.bump.outputs.version }}" ]]; then
+            echo "::error::package.json dice $PKG pero el publish seria ${{ steps.bump.outputs.version }}"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+
+      # Sincronizar server.json con la version del package.json.
+      # Si difieren, el MCP Registry rechaza con 422.
+      - name: "Sync server.json con package.json"
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          python3 -c "
+          import json
+          with open('package.json') as f: pkg = json.load(f)
+          with open('server.json') as f: srv = json.load(f)
+          changed = False
+          if pkg['version'] != srv.get('version'):
+            srv['version'] = pkg['version']; changed = True
+          for p in srv.get('packages', []):
+            if p.get('version') != pkg['version']:
+              p['version'] = pkg['version']; changed = True
+          if changed:
+            with open('server.json', 'w') as f: json.dump(srv, f, indent=2)
+            print('server.json actualizado a version', pkg['version'])
+          else:
+            print('server.json ya sincronizado')
+          "
+          git diff --exit-code server.json || git commit -am "ci: sync server.json a v$VERSION"
+
+  # ---------------------------------------------------------------------
+  # Job 2: publicar a npm via Trusted Publishing (OIDC)
+  # Requiere setup previo en https://www.npmjs.com/settings/james.valencia/security
+  # ---------------------------------------------------------------------
+  publish-npm:
+    name: publish to npm
+    needs: validate
+    if: needs.validate.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry: 'https://registry.npmjs.org/'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: oauth
+
+      - name: Verify
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          npm view "@james.valencia/mcp-reportia@$VERSION" version
+          echo "OK: @james.valencia/mcp-reportia@$VERSION publicado"
+
+  # ---------------------------------------------------------------------
+  # Job 3: publicar al MCP Registry oficial via github-oidc
+  # ---------------------------------------------------------------------
+  publish-mcp-registry:
+    name: publish to MCP Registry
+    needs: [validate, publish-npm]
+    if: needs.validate.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Authenticate via OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+  # ---------------------------------------------------------------------
+  # Job 4: crear GitHub Release con notas automaticas
+  # ---------------------------------------------------------------------
+  release:
+    name: github release
+    needs: [publish-npm, publish-mcp-registry]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false

@@ -1,0 +1,57 @@
+# Workflow: CI - Validacion continua
+# Trigger: cada PR contra main, y cada push directo a main.
+# Objetivo: ejecutar typecheck + tests + build + smoke antes de permitir merge.
+# NO publica nada. Para publicar, ver publish.yml (requiere tag v*).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: typecheck + test + build + smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke (MCP handshake offline)
+        run: npm run build && npm run test:smoke
+
+      - name: Verify 66 tools exposed
+        run: |
+          set -e
+          node scripts/jsonrpc-smoke.mjs 2>&1 | tee /tmp/smoke.log
+          if ! grep -q "OK: tools/list devolvio 66 herramientas" /tmp/smoke.log; then
+            echo "FAIL: smoke no reporto 66 tools"
+            exit 1
+          fi
