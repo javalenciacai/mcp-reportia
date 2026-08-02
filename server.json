@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "@javalenciacai/mcp-reportia",
+      "identifier": "@james.valencia/mcp-reportia",
       "version": "0.1.0",
       "runtimeHint": "npx",
       "transport": {

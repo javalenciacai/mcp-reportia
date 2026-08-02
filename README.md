@@ -2,7 +2,7 @@
 
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.javalenciacai%2Fmcp--reportia-blue?logo=modelcontextprotocol)](https://registry.modelcontextprotocol.io)
 [![skills.sh](https://img.shields.io/badge/skills.sh-javalenciacai%2Fmcp--reportia-7c3aed?logo=lightning)](https://skills.sh/javalenciacai/mcp-reportia)
-[![npm](https://img.shields.io/npm/v/@javalenciacai/mcp-reportia?logo=npm)](https://www.npmjs.com/package/@javalenciacai/mcp-reportia)
+[![npm](https://img.shields.io/npm/v/@james.valencia/mcp-reportia?logo=npm)](https://www.npmjs.com/package/@james.valencia/mcp-reportia)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 Servidor **[MCP](https://modelcontextprotocol.io/)** (Model Context Protocol) independiente que envuelve la **API HTTP real de Reportia** y la expone a través del transporte `stdio` con **JSON-RPC newline-delimited**. Pensado para ser consumido por clientes MCP (Claude Desktop, Cursor, Hermes Agent, otros) con un único `npx`, sin ejecutar código de servidor propio.
@@ -36,7 +36,7 @@ Este servidor MCP está publicado y discoverable en:
 | Plataforma | URL | Formato |
 | ---------- | --- | ------- |
 | **MCP Registry oficial** (modelcontextprotocol.io) | `io.github.javalenciacai/mcp-reportia` | [`server.json`](./server.json) |
-| **npm registry** | [`@javalenciacai/mcp-reportia`](https://www.npmjs.com/package/@javalenciacai/mcp-reportia) | npm package |
+| **npm registry** | [`@james.valencia/mcp-reportia`](https://www.npmjs.com/package/@james.valencia/mcp-reportia) | npm package |
 | **skills.sh** (Agent Skills Directory) | [`javalenciacai/mcp-reportia`](https://skills.sh/javalenciacai/mcp-reportia) | [`skills/reportia-mcp-usage/SKILL.md`](./skills/reportia-mcp-usage/SKILL.md) |
 
 Instalación via skills.sh:

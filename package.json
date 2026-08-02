@@ -1,5 +1,5 @@
 {
-  "name": "@javalenciacai/mcp-reportia",
+  "name": "@james.valencia/mcp-reportia",
   "version": "0.1.0",
   "description": "Servidor MCP (Model Context Protocol) independiente que envuelve la API HTTP real de Reportia. Pensado para ser consumido por otra aplicación de IA vía npx/stdio.",
   "type": "module",
