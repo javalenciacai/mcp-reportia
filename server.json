@@ -1,0 +1,70 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.javalenciacai/mcp-reportia",
+  "description": "MCP server (stdio/npm) that wraps the Reportia HTTP API as 66 curated tools. Covers companies, accounting movements, account mappings, commission reports, third parties, salesperson-invoice mappings, line/cost-center mappings and reports, SIIGO sync, queues, and uploads. Designed to be consumed by another AI application via `npx mcp-reportia`.",
+  "repository": {
+    "url": "https://github.com/javalenciacai/mcp-reportia.git",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@javalenciacai/mcp-reportia",
+      "version": "0.1.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Base URL of the Reportia API (without trailing slash). Example: https://reportia.example.com",
+          "isRequired": true,
+          "name": "REPORTIA_BASE_URL"
+        },
+        {
+          "description": "Bearer token for M2M authentication. Mutually exclusive with REPORTIA_EMAIL+REPORTIA_PASSWORD.",
+          "isRequired": false,
+          "isSecret": true,
+          "name": "REPORTIA_TOKEN"
+        },
+        {
+          "description": "Email for cookie-session authentication.",
+          "isRequired": false,
+          "name": "REPORTIA_EMAIL"
+        },
+        {
+          "description": "Password for cookie-session authentication.",
+          "isRequired": false,
+          "isSecret": true,
+          "name": "REPORTIA_PASSWORD"
+        },
+        {
+          "description": "Default companyId used when a tool accepts it as optional.",
+          "isRequired": false,
+          "name": "REPORTIA_COMPANY_ID"
+        },
+        {
+          "description": "HTTP request timeout in milliseconds (default 30000).",
+          "isRequired": false,
+          "name": "REPORTIA_TIMEOUT_MS"
+        },
+        {
+          "description": "Directory where downloaded Excel/PDF exports are saved (default ./downloads).",
+          "isRequired": false,
+          "name": "REPORTIA_DOWNLOAD_DIR"
+        },
+        {
+          "description": "Custom User-Agent header (default mcp-reportia/0.1.0).",
+          "isRequired": false,
+          "name": "REPORTIA_USER_AGENT"
+        },
+        {
+          "description": "Maximum bytes for a single binary download (default 104857600 = 100MB).",
+          "isRequired": false,
+          "name": "REPORTIA_MAX_DOWNLOAD_BYTES"
+        }
+      ]
+    }
+  ]
+}

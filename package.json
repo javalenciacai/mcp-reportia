@@ -1,5 +1,5 @@
 {
-  "name": "mcp-reportia",
+  "name": "@javalenciacai/mcp-reportia",
   "version": "0.1.0",
   "description": "Servidor MCP (Model Context Protocol) independiente que envuelve la API HTTP real de Reportia. Pensado para ser consumido por otra aplicación de IA vía npx/stdio.",
   "type": "module",
@@ -11,7 +11,8 @@
     "dist",
     "README.md",
     "LICENSE",
-    ".env.example"
+    ".env.example",
+    "server.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -48,5 +49,14 @@
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/javalenciacai/mcp-reportia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/javalenciacai/mcp-reportia/issues"
+  },
+  "homepage": "https://github.com/javalenciacai/mcp-reportia#readme",
+  "mcpName": "io.github.javalenciacai/mcp-reportia"
 }
