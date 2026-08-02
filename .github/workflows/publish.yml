@@ -72,7 +72,7 @@ jobs:
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
-          elif [[ -n "${{ inputs.version }}" }}" ]]; then
+          elif [[ -n "${{ inputs.version }}" ]]; then
             VERSION="${{ inputs.version }}"
           else
             VERSION=$(node -p "require('./package.json').version")
