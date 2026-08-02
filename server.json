@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.javalenciacai/mcp-reportia",
-  "description": "MCP server (stdio/npm) that wraps the Reportia HTTP API as 66 curated tools. Covers companies, accounting movements, account mappings, commission reports, third parties, salesperson-invoice mappings, line/cost-center mappings and reports, SIIGO sync, queues, and uploads. Designed to be consumed by another AI application via `npx mcp-reportia`.",
+  "description": "Reportia HTTP API as 66 curated MCP tools (accounting, mappings, SIIGO).",
   "repository": {
     "url": "https://github.com/javalenciacai/mcp-reportia.git",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@james.valencia/mcp-reportia",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
