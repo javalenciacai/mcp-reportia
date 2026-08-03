@@ -153,8 +153,19 @@ jobs:
       - name: Verify
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
-          npm view "@james.valencia/mcp-reportia@$VERSION" version
-          echo "OK: @james.valencia/mcp-reportia@$VERSION publicado"
+          # npm view puede fallar por cache timing si se ejecuta
+          # inmediatamente despues de npm publish (CDN tarda ~30s).
+          # Reintentamos hasta 5 veces con backoff.
+          for i in 1 2 3 4 5; do
+            if OUT=$(npm view "@james.valencia/mcp-reportia@$VERSION" version 2>&1); then
+              echo "OK: @james.valencia/mcp-reportia@$VERSION publicado (intento $i)"
+              exit 0
+            fi
+            echo "Intento $i fallo: $OUT"
+            sleep 10
+          done
+          echo "FAIL: la version $VERSION no aparecio en npm tras 5 intentos"
+          exit 1
 
   # ---------------------------------------------------------------------
   # Job 3: publicar al MCP Registry oficial via github-oidc
