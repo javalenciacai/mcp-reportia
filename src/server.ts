@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { createClient } from './client.js';
 import { allTools } from './tools/index.js';
+import { toToolCallResult } from './tool-base.js';
 
 export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) {
   const server = new McpServer({ name: 'mcp-reportia', version: '0.1.0' });
@@ -32,9 +33,7 @@ export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) 
           };
         }
         const r = await tool.handler(parsed.data, ctx);
-        return r.ok
-          ? { content: [{ type: 'text', text: r.content }], ...(r.data && typeof r.data === 'object' ? { structuredContent: r.data } : {}) }
-          : { isError: true, content: [{ type: 'text', text: JSON.stringify((r as any).error) }] };
+        return toToolCallResult(r);
       }) as any,
     );
   }
