@@ -176,6 +176,35 @@ export function ok(data: unknown, asText?: string): ToolResult {
   return { ok: true, content: JSON.stringify(data, null, 2), data };
 }
 
+/**
+ * Convierte un ToolResult en la forma esperada por `McpServer.registerTool`.
+ *
+ * Regla clave: `structuredContent` solo se incluye cuando `data` es un objeto
+ * **no-array**. El SDK de MCP (@modelcontextprotocol/sdk >= 1.x) valida
+ * `structuredContent` con un Zod `record<string, unknown>`, y enviar un array
+ * raiz (p. ej. la respuesta de `GET /api/companies`) provoca
+ * `MCP error -32602: Invalid tools/call result: expected "record", received "array"`.
+ *
+ * En esos casos, el cliente recibe el JSON en `content` (texto) y puede
+ * parsearlo normalmente; el LLM sigue viéndolo sin perder información.
+ */
+export function toToolCallResult(r: ToolResult): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError?: true;
+  structuredContent?: Record<string, unknown>;
+} {
+  if (!r.ok) {
+    return { isError: true, content: [{ type: 'text', text: JSON.stringify((r as { error: unknown }).error) }] };
+  }
+  const out: ReturnType<typeof toToolCallResult> = {
+    content: [{ type: 'text', text: r.content }],
+  };
+  if (r.data !== undefined && r.data !== null && typeof r.data === 'object' && !Array.isArray(r.data)) {
+    out.structuredContent = r.data as Record<string, unknown>;
+  }
+  return out;
+}
+
 /** Mapea una excepción a ToolResult de error legible. */
 export function fail(err: unknown): ToolResult {
   if (err instanceof ReportiaError) {
