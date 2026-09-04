@@ -45,6 +45,34 @@ describe('loadConfig', () => {
     expect(cfg.token).toBeUndefined();
   });
 
+  it('cambia authMode a cookie cuando REPORTIA_COOKIE esta presente (sesion resuelta por el caller)', () => {
+    const cfg = loadConfig(
+      makeEnv({
+        REPORTIA_TOKEN: undefined,
+        REPORTIA_EMAIL: undefined,
+        REPORTIA_PASSWORD: undefined,
+        REPORTIA_COOKIE: 'connect.sid=s%3Atest-cookie-value',
+      }),
+    );
+    expect(cfg.authMode).toBe('cookie');
+    expect(cfg.cookie).toBe('connect.sid=s%3Atest-cookie-value');
+    expect(cfg.token).toBeUndefined();
+  });
+
+  it('cookie tiene precedencia sobre token cuando ambos estan presentes — fallo explicito', () => {
+    // Las dos a la vez es un error de config (sin precedencia silenciosa);
+    // un REPORTIA_TOKEN accidental en el env no debe sobreescribir la
+    // sesion per-user que el caller resolvio explicitamente.
+    expect(() =>
+      loadConfig(
+        makeEnv({
+          REPORTIA_TOKEN: 'service-token-should-not-be-honored',
+          REPORTIA_COOKIE: 'connect.sid=s%3Aper-user-cookie',
+        }),
+      ),
+    ).toThrowError(/mutuamente excluyentes/);
+  });
+
   it('rechaza si falta baseUrl', () => {
     expect(() => loadConfig(makeEnv({ REPORTIA_BASE_URL: undefined }))).toThrowError(
       /REPORTIA_BASE_URL es obligatorio/,
