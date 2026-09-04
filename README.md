@@ -92,8 +92,8 @@ Si dice `OK: @james.valencia/mcp-reportia@0.1.2 publicado` en el último step, e
 
 | Plataforma | Requisito | Estado |
 | ---------- | --------- | ------ |
-| **npm Trusted Publishing** | Configurar publisher en `/package/@james.valencia/mcp-reportia/settings` con `javalenciacai/mcp-reportia` + `publish.yml` | **Tu turno** |
-| **Workflow Node 24** | Subir a Node 24 (lo hago yo tras tu confirmación) | **Pendiente** |
+| **npm Trusted Publishing** | Configurar publisher en `/package/@james.valencia/mcp-reportia/settings` con `javalenciacai/mcp-reportia` + `publish.yml` | Tu turno |
+| **Workflow Node 24** | Subir a Node 24 (lo hago yo tras tu confirmación) | Pendiente |
 | **MCP Registry** | Ninguno — usa `github-oidc` que firma el workflow automáticamente | Listo |
 | **skills.sh** | Ninguno — scraping automático | Listo |
 | **GitHub Release** | Permiso `contents: write` ya configurado en el workflow | Listo |
@@ -165,6 +165,7 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | ----------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `REPORTIA_BASE_URL`     | **Sí**               | URL raíz de la API de Reportia, sin barra final (p.ej. `https://reportia.example.com`).                                                  |
 | `REPORTIA_TOKEN`        | Condicional\*        | Token Bearer. Alternativa al login por sesión.                                                                                           |
+| `REPORTIA_COOKIE`       | Condicional\*        | Cookie de sesión Reportia pre-emitida (p.ej. `connect.sid=s%3A...`). Para callers que ya tienen la sesión del usuario resuelta y quieren que el child autentique como ese usuario sin re-login. |
 | `REPORTIA_EMAIL`        | Condicional\*        | Email para login por sesión (cookie).                                                                                                    |
 | `REPORTIA_PASSWORD`     | Condicional\*        | Contraseña para login por sesión (cookie).                                                                                               |
 | `REPORTIA_COMPANY_ID`   | No                   | `companyId` por defecto cuando la tool lo admita. Acepta entero positivo.                                                                |
@@ -172,12 +173,17 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | `REPORTIA_DOWNLOAD_DIR` | No (def. `./downloads`) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados).                                                              |
 | `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/0.1.0`) | Cabecera `User-Agent` en cada request.                                                                                       |
 
-\* **Exactamente una** de las dos alternativas de auth debe estar presente:
+\* **Exactamente una** de las tres alternativas de auth debe estar presente:
 
 - `REPORTIA_TOKEN` Bearer, o
-- `REPORTIA_EMAIL` + `REPORTIA_PASSWORD` sesión cookie.
+- `REPORTIA_EMAIL` + `REPORTIA_PASSWORD` sesión cookie (el package hace `POST /api/auth/login` y captura la cookie), o
+- `REPORTIA_COOKIE` sesión cookie pre-emitida (el package la usa directo, sin re-login).
 
-Si no, `loadConfig` lanza `ConfigError` al arrancar el servidor.
+Si pasás `REPORTIA_TOKEN` y `REPORTIA_COOKIE` a la vez, `loadConfig` lanza `ConfigError` con el mensaje `REPORTIA_TOKEN y REPORTIA_COOKIE son mutuamente excluyentes — usa solo uno.` para evitar que un token accidental sobreescriba una sesión per-user.
+
+Precedencia cuando se establece una sola: `cookie > bearer > session`. `cookie` gana porque es la que matchea la identidad resuelta upstream; bearer es service-account; session es email+password login (el child se loguea a sí mismo).
+
+Si no se establece ninguna, `loadConfig` lanza `ConfigError` al arrancar el servidor.
 
 > ⚠️ **No** copies credenciales de `C:\james\Reportia\.env` a este repositorio. Este proyecto **no debe** contener secretos. Configúralas en el entorno del cliente MCP que lo invoque.
 
@@ -244,6 +250,28 @@ REPORTIA_COMPANY_ID = "123"
 ```
 
 > El nombre exacto del campo varía según la versión de Hermes. Consulta `hermes mcp --help`.
+
+### Caller que ya tiene la sesión del usuario (per-user, recomendado para servidores AI)
+
+Cuando el caller (p.ej. un servidor AI multi-tenant) ya resolvió la sesión de Reportia del usuario activo y quiere que el child autentique como ese mismo usuario — sin re-login y sin service-account — pasale la cookie pre-emitida:
+
+```jsonc
+{
+  "mcpServers": {
+    "reportia": {
+      "command": "npx",
+      "args": ["-y", "mcp-reportia"],
+      "env": {
+        "REPORTIA_BASE_URL": "https://reportia.example.com",
+        "REPORTIA_COOKIE": "connect.sid=s%3A<session-id-from-resolved-user>",
+        "REPORTIA_COMPANY_ID": "123"
+      }
+    }
+  }
+}
+```
+
+> El child NO va a llamar a `/api/auth/login` (se salta ese paso), NO va a llamar a `/api/auth/logout` al cerrar (la sesión es del caller, no del child), y va a hacer todas las requests Reportia con la identidad del usuario resuelto. Si el caller está corriendo detrás de un relay que captura la cookie del usuario en runtime (p.ej. la session-derived path del Cowork server), este es el modo de auth que se alinea con ese flujo.
 
 ---
 
@@ -519,8 +547,8 @@ Esto ejecuta `npx @modelcontextprotocol/inspector node dist/server.js`, que abre
 ```
 src/
 ├── server.ts               # Arranca McpServer + StdioServerTransport y registra tools.
-├── config.ts               # Carga y valida env vars (Zod).
-├── client.ts               # Cliente HTTP sobre undici. Bearer o sesión cookie.
+├── config.ts               # Carga y valida env vars (Zod). Tres auth modes: bearer / session / cookie.
+├── client.ts               # Cliente HTTP sobre undici. Bearer, sesión cookie propia, o cookie pre-emitida.
 ├── errors.ts               # Jerarquía ReportiaError.
 ├── tool-base.ts            # Helpers: ToolDefinition, ok/fail, resolveCompanyId, assertConfirmed.
 └── tools/
