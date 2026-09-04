@@ -94,7 +94,7 @@ function isInside(parent: string, child: string): boolean {
 }
 
 export interface ClientDiagnostics {
-  authMode: 'bearer' | 'session';
+  authMode: 'bearer' | 'session' | 'cookie';
   baseUrl: string;
   hasSession: boolean;
   userId: number | null;
@@ -149,6 +149,12 @@ export function createClient(config: AppConfig): ReportiaClient {
     };
     if (config.authMode === 'bearer' && config.token) {
       h.Authorization = `Bearer ${config.token}`;
+    } else if (config.authMode === 'cookie' && config.cookie) {
+      // Pre-issued session cookie (REPORTIA_COOKIE) — upstream caller
+      // already holds the resolved user's `connect.sid`. The package's
+      // own login flow (cookie captured via POST /api/auth/login) is
+      // skipped in this mode; ensureSession() short-circuits below.
+      h.Cookie = config.cookie;
     } else if (cookie) {
       h.Cookie = cookie;
     }
@@ -181,6 +187,12 @@ export function createClient(config: AppConfig): ReportiaClient {
   }
 
   async function ensureSession(): Promise<void> {
+    // Cookie mode: the upstream caller already supplied REPORTIA_COOKIE —
+    // no login round trip needed. Just attach the pre-issued cookie to
+    // every request via buildHeaders(). Closing the client at end of run
+    // does NOT call /api/auth/logout either (that would invalidate the
+    // user's actual session, which belongs to the caller, not us).
+    if (config.authMode === 'cookie') return;
     if (config.authMode !== 'session') return;
     if (cookie) return;
     if (!loginInFlight) {
@@ -338,7 +350,10 @@ export function createClient(config: AppConfig): ReportiaClient {
   }
 
   async function close(): Promise<void> {
-    if (cookie) {
+    // Cookie mode: we never owned the session — the upstream caller did.
+    // Calling /api/auth/logout here would invalidate the user's actual
+    // session, which belongs to them, not us. Skip silently.
+    if (cookie && config.authMode !== 'cookie') {
       try {
         await rawFetch('/api/auth/logout', { method: 'POST' });
       } catch {
