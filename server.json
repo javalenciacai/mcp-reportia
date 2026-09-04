@@ -6,12 +6,12 @@
     "url": "https://github.com/javalenciacai/mcp-reportia.git",
     "source": "github"
   },
-  "version": "0.1.6",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@james.valencia/mcp-reportia",
-      "version": "0.1.6",
+      "version": "0.2.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -23,10 +23,16 @@
           "name": "REPORTIA_BASE_URL"
         },
         {
-          "description": "Bearer token for M2M authentication. Mutually exclusive with REPORTIA_EMAIL+REPORTIA_PASSWORD.",
+          "description": "Bearer token for M2M authentication. Mutually exclusive with REPORTIA_COOKIE; either can be paired with REPORTIA_EMAIL+REPORTIA_PASSWORD (session login) for cookie fallback.",
           "isRequired": false,
           "isSecret": true,
           "name": "REPORTIA_TOKEN"
+        },
+        {
+          "description": "Pre-issued Reportia session cookie (e.g. connect.sid=s%3A...). For upstream callers that already hold the resolved user's session and want the child to authenticate as that user without re-login. Mutually exclusive with REPORTIA_TOKEN. Skips /api/auth/login and /api/auth/logout.",
+          "isRequired": false,
+          "isSecret": true,
+          "name": "REPORTIA_COOKIE"
         },
         {
           "description": "Email for cookie-session authentication.",
