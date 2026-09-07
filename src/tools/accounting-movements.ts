@@ -49,6 +49,11 @@ const ListFiltersInput = CompanyIdInput.extend({
   // exposes it, but movements-list did not). Matches the convention
   // from third-parties / account-mappings (max 1000, default 100).
   limit: z.number().int().min(1).max(1000).optional().default(100),
+  // Offset for pagination — the upstream GET /api/companies/:companyId/movements
+  // endpoint added in upstream feat/accounting-movements-raw-endpoint
+  // (2026-09-07) supports offset-based pagination so agents can fetch
+  // beyond the first page without re-running the same query. Default 0.
+  offset: z.number().int().min(0).optional().default(0),
 });
 
 /** Esquema común para exportación: mismas claves que el listado + format + includePreviousBalance. */
@@ -73,13 +78,24 @@ const DeleteAllInput = CompanyIdInput.extend({
 // Tools
 const ListTool: ToolDefinition<typeof ListFiltersInput> = {
   name: 'reportia_movements_list',
-  description: 'Lista movimientos contables con filtros opcionales para una empresa específica.',
+  description:
+    'Lista movimientos contables crudos (raw rows) con filtros opcionales y paginación ' +
+    'para una empresa específica. Diseñado para agentes LLM: devuelve solo las filas ' +
+    '(más `total`, `limit`, `offset` para paginar) sin las agregaciones pesadas (summary, ' +
+    'previousBalance, totalDebits, etc.) que la UI del reporte usa.',
   inputSchema: ListFiltersInput,
   handler: async (input, ctx) => {
     try {
       const companyId = resolveCompanyId(input, ctx);
 
-      const data = await ctx.client.call(`/api/companies/${companyId}/accounting-movements`, {
+      // Calls the NEW raw-data endpoint added in upstream
+      // feat/accounting-movements-raw-endpoint (2026-09-07). Returns:
+      //   { movements: AccountingMovement[], total, limit, offset }
+      // The OLD report endpoint (/accounting-movements, without the
+      // `movements` segment) is kept for the SPA's report UI; the LLM
+      // never hit it because its response payload crossed the upstream
+      // byte cap and got blocked with `process_blocked: output_too_large`.
+      const data = await ctx.client.call(`/api/companies/${companyId}/movements`, {
         method: 'GET',
         query: {
           startDate: input.startDate,
@@ -89,6 +105,7 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
           tipoComprobante: input.tipoComprobante,
           emailStatus: input.emailStatus,
           limit: input.limit,
+          offset: input.offset,
         },
       });
       return ok(data);
