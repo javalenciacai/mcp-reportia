@@ -43,6 +43,12 @@ const ListFiltersInput = CompanyIdInput.extend({
   numeroDocumento: z.string().optional(),
   tipoComprobante: z.enum(['factura', 'pago', 'recepcion']).optional(),
   emailStatus: z.enum(['all', 'paid', 'pending']).optional(),
+  // Cap returned rows so wide date ranges don't trigger upstream
+  // `process_blocked: output_too_large` (regression 2026-09-07 — the
+  // upstream accepts `limit`, every other list tool in this repo
+  // exposes it, but movements-list did not). Matches the convention
+  // from third-parties / account-mappings (max 1000, default 100).
+  limit: z.number().int().min(1).max(1000).optional().default(100),
 });
 
 /** Esquema común para exportación: mismas claves que el listado + format + includePreviousBalance. */
@@ -82,6 +88,7 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
           numeroDocumento: input.numeroDocumento,
           tipoComprobante: input.tipoComprobante,
           emailStatus: input.emailStatus,
+          limit: input.limit,
         },
       });
       return ok(data);
