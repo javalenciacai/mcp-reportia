@@ -36,9 +36,28 @@ const CompanyIdInput = z.object({
   companyId: z.number().int().positive().optional(),
 });
 
+// Why ExportInput is NOT an .extend() of ListFiltersInput (REQ-MCP-03):
+// The two schemas share a similar shape TODAY but they target DIFFERENT
+// upstream endpoint families with DIFFERENT query-param conventions:
+//
+//   * ListFiltersInput  -> GET /api/companies/:companyId/movements
+//                          (added in upstream feat/accounting-movements-raw-endpoint,
+//                          2026-09-07). Will read `dateFrom` / `dateTo` after
+//                          PR 2 lands (REQ-MCP-01 HARD RENAME).
+//
+//   * ExportInput       -> GET /api/companies/:companyId/accounting-movements/export/{excel|pdf}
+//                          (the OLD family — same surface as the SPA's report
+//                          UI). Reads `startDate` / `endDate`. NOT renamed in
+//                          PR 2 (REQ-MCP-02).
+//
+// If ExportInput were `ListFiltersInput.extend({...})`, renaming the list
+// schema's date keys would silently cascade into the export schema and
+// break the export tools. The duplication below is intentional and frozen:
+// shape audit tests (REQ-MCP-03 Object.keys) lock the contract against
+// future drift.
 const ListFiltersInput = CompanyIdInput.extend({
-  startDate: DateString,
-  endDate: DateString,
+  dateFrom: DateString,
+  dateTo: DateString,
   nit: z.string().optional(),
   numeroDocumento: z.string().optional(),
   tipoComprobante: z.enum(['factura', 'pago', 'recepcion']).optional(),
@@ -54,10 +73,17 @@ const ListFiltersInput = CompanyIdInput.extend({
   // (2026-09-07) supports offset-based pagination so agents can fetch
   // beyond the first page without re-running the same query. Default 0.
   offset: z.number().int().min(0).optional().default(0),
-});
+}).strict();
 
-/** Esquema común para exportación: mismas claves que el listado + format + includePreviousBalance. */
-const ExportInput = ListFiltersInput.extend({
+/** Esquema para exportacion a Excel/PDF. Duplica los campos de filtro del
+ *  listado intencionalmente (REQ-MCP-03) — el endpoint de exportacion
+ *  sigue leyendo `startDate`/`endDate`, no `dateFrom`/`dateTo`. */
+const ExportInput = CompanyIdInput.extend({
+  startDate: DateString,
+  endDate: DateString,
+  nit: z.string().optional(),
+  numeroDocumento: z.string().optional(),
+  tipoComprobante: z.enum(['factura', 'pago', 'recepcion']).optional(),
   format: z.enum(['excel', 'pdf']),
   includePreviousBalance: z.boolean().optional(),
 });
@@ -98,8 +124,8 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
       const data = await ctx.client.call(`/api/companies/${companyId}/movements`, {
         method: 'GET',
         query: {
-          startDate: input.startDate,
-          endDate: input.endDate,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
           nit: input.nit,
           numeroDocumento: input.numeroDocumento,
           tipoComprobante: input.tipoComprobante,

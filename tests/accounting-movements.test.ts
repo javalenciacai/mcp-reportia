@@ -113,8 +113,8 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
     const ctx = ctxWithSpy(callSpy);
     const parsed = listTool.inputSchema.safeParse({
       companyId: 1,
-      startDate: '2026-01-01',
-      endDate: '2026-01-31',
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
       nit: '900123456',
       tipoComprobante: 'factura',
       limit: 10,
@@ -128,8 +128,8 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
       query: Record<string, unknown>;
     };
     expect(opts.method).toBe('GET');
-    expect(opts.query.startDate).toBe('2026-01-01');
-    expect(opts.query.endDate).toBe('2026-01-31');
+    expect(opts.query.dateFrom).toBe('2026-01-01');
+    expect(opts.query.dateTo).toBe('2026-01-31');
     expect(opts.query.nit).toBe('900123456');
     expect(opts.query.tipoComprobante).toBe('factura');
     expect(opts.query.limit).toBe(10);
@@ -172,5 +172,91 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
   it('rejects negative offset', () => {
     const r = listTool.inputSchema.safeParse({ companyId: 1, offset: -1 });
     expect(r.success).toBe(false);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// REQ-MCP-01..06 — dateFrom/dateTo rename for reportia_movements_list + schema
+// split for reportia_movements_export_*. The OLD `startDate`/`endDate` names
+// hit the silent-filter-mismatch bug (mcp-reportia sent `startDate`,
+// /api/companies/:companyId/movements read `dateFrom`, the upstream predicate
+// was skipped, every row came back). Renaming is the loud-failure fix.
+// ----------------------------------------------------------------------------
+
+const exportExcelTool = accountingMovementTools.find(
+  (t) => t.name === 'reportia_movements_export_excel',
+);
+if (!exportExcelTool) throw new Error('reportia_movements_export_excel tool not registered');
+
+const exportPdfTool = accountingMovementTools.find(
+  (t) => t.name === 'reportia_movements_export_pdf',
+);
+if (!exportPdfTool) throw new Error('reportia_movements_export_pdf tool not registered');
+
+describe('reportia_movements_list — date filter rename (REQ-MCP-01)', () => {
+  it('rejects startDate with an unrecognized-key issue', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, startDate: '2026-02-01' });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    // zod's .strict() puts unknown keys in `issues[0].keys`, with path = [].
+    expect(r.error.issues[0].keys).toEqual(['startDate']);
+    expect(r.error.issues[0].message).toMatch(/Unrecognized key/i);
+  });
+
+  it('rejects endDate with an unrecognized-key issue', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, endDate: '2026-02-28' });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    expect(r.error.issues[0].keys).toEqual(['endDate']);
+    expect(r.error.issues[0].message).toMatch(/Unrecognized key/i);
+  });
+
+  it('accepts the renamed dateFrom/dateTo keys', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-28',
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('reportia_movements_export_* — old startDate/endDate keys preserved (REQ-MCP-02)', () => {
+  it('export_excel accepts startDate/endDate (export endpoint contract unchanged)', () => {
+    const r = exportExcelTool.inputSchema.safeParse({
+      companyId: 1,
+      startDate: '2026-02-01',
+      endDate: '2026-02-28',
+      format: 'excel',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('export_pdf accepts startDate/endDate (export endpoint contract unchanged)', () => {
+    const r = exportPdfTool.inputSchema.safeParse({
+      companyId: 1,
+      startDate: '2026-02-01',
+      endDate: '2026-02-28',
+      format: 'pdf',
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('schema split — ExportInput no longer extends ListFiltersInput (REQ-MCP-03)', () => {
+  it('ExportInput.shape exposes startDate/endDate and NOT dateFrom/dateTo', () => {
+    const keys = Object.keys(exportExcelTool.inputSchema.shape).sort();
+    expect(keys).toContain('startDate');
+    expect(keys).toContain('endDate');
+    expect(keys).not.toContain('dateFrom');
+    expect(keys).not.toContain('dateTo');
+  });
+
+  it('ListFiltersInput.shape exposes dateFrom/dateTo and NOT startDate/endDate', () => {
+    const keys = Object.keys(listTool.inputSchema.shape).sort();
+    expect(keys).toContain('dateFrom');
+    expect(keys).toContain('dateTo');
+    expect(keys).not.toContain('startDate');
+    expect(keys).not.toContain('endDate');
   });
 });
