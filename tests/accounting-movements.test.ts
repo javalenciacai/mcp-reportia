@@ -198,7 +198,8 @@ describe('reportia_movements_list — date filter rename (REQ-MCP-01)', () => {
     const r = listTool.inputSchema.safeParse({ companyId: 1, startDate: '2026-02-01' });
     expect(r.success).toBe(false);
     if (r.success) return;
-    expect(r.error.issues[0].path).toEqual(['startDate']);
+    // zod's .strict() puts unknown keys in `issues[0].keys`, with path = [].
+    expect(r.error.issues[0].keys).toEqual(['startDate']);
     expect(r.error.issues[0].message).toMatch(/Unrecognized key/i);
   });
 
@@ -206,7 +207,7 @@ describe('reportia_movements_list — date filter rename (REQ-MCP-01)', () => {
     const r = listTool.inputSchema.safeParse({ companyId: 1, endDate: '2026-02-28' });
     expect(r.success).toBe(false);
     if (r.success) return;
-    expect(r.error.issues[0].path).toEqual(['endDate']);
+    expect(r.error.issues[0].keys).toEqual(['endDate']);
     expect(r.error.issues[0].message).toMatch(/Unrecognized key/i);
   });
 
