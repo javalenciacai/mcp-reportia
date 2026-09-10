@@ -56,8 +56,8 @@ const CompanyIdInput = z.object({
 // shape audit tests (REQ-MCP-03 Object.keys) lock the contract against
 // future drift.
 const ListFiltersInput = CompanyIdInput.extend({
-  startDate: DateString,
-  endDate: DateString,
+  dateFrom: DateString,
+  dateTo: DateString,
   nit: z.string().optional(),
   numeroDocumento: z.string().optional(),
   tipoComprobante: z.enum(['factura', 'pago', 'recepcion']).optional(),
@@ -73,7 +73,7 @@ const ListFiltersInput = CompanyIdInput.extend({
   // (2026-09-07) supports offset-based pagination so agents can fetch
   // beyond the first page without re-running the same query. Default 0.
   offset: z.number().int().min(0).optional().default(0),
-});
+}).strict();
 
 /** Esquema para exportacion a Excel/PDF. Duplica los campos de filtro del
  *  listado intencionalmente (REQ-MCP-03) — el endpoint de exportacion
@@ -124,8 +124,8 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
       const data = await ctx.client.call(`/api/companies/${companyId}/movements`, {
         method: 'GET',
         query: {
-          startDate: input.startDate,
-          endDate: input.endDate,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
           nit: input.nit,
           numeroDocumento: input.numeroDocumento,
           tipoComprobante: input.tipoComprobante,
