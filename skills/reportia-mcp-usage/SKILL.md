@@ -85,10 +85,25 @@ so they can open it. Do not try to parse the binary content as text.
 
 ### 6. Date inputs
 
-All date filters (`startDate`, `endDate`, `cutoffDate`, `portfolioCutoffDate`)
-must be strict ISO `YYYY-MM-DD`. The MCP rejects impossible dates
-(2025-02-30, 2025-13-01) with `INVALID_INPUT`. For reports, `startDate`
-must be `<= endDate` or the tool returns `INVALID_DATE_RANGE`.
+Date filters must be strict ISO `YYYY-MM-DD`. The MCP rejects impossible
+dates (2025-02-30, 2025-13-01) with `INVALID_INPUT`. For reports,
+`startDate` must be `<= endDate` or the tool returns `INVALID_DATE_RANGE`.
+
+**As of mcp-reportia 0.3.1, the parameter names differ between tools:**
+
+- `reportia_movements_list` (raw rows) — uses **`dateFrom`** and **`dateTo`**
+  (HARD RENAME in v0.3.1; `startDate`/`endDate` are rejected with
+  `Unrecognized key(s)` by the zod strict schema).
+- `reportia_movements_export_excel`, `reportia_movements_export_pdf`
+  (report UI exports) — still use **`startDate`** and **`endDate`**
+  (unchanged, these hit legacy `/accounting-movements/export/*` endpoints).
+- Other date-named params throughout the MCP (`cutoffDate`,
+  `portfolioCutoffDate`, `from`, `to`, etc.) are unchanged.
+
+When fetching raw rows for the LLM to read, use `dateFrom`/`dateTo`.
+When triggering a download for the user, use `startDate`/`endDate`.
+Mismatching the keys produces a zod validation error, not a silent
+filter mismatch.
 
 ### 7. NIT format
 
