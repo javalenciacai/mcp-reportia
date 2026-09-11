@@ -108,7 +108,19 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
     'Lista movimientos contables crudos (raw rows) con filtros opcionales y paginación ' +
     'para una empresa específica. Diseñado para agentes LLM: devuelve solo las filas ' +
     '(más `total`, `limit`, `offset` para paginar) sin las agregaciones pesadas (summary, ' +
-    'previousBalance, totalDebits, etc.) que la UI del reporte usa.',
+    'previousBalance, totalDebits, etc.) que la UI del reporte usa. ' +
+    // REQ-MCP-07 — echo de query guidance. 2026-09-10 incident: the LLM
+    // confused two separate tool calls (one with limit=100, one with
+    // limit=1000) and reported the date filter was broken because rows
+    // from both calls leaked into the same context. The response includes
+    // a `query` field echoing the resolved filters so the LLM can verify
+    // every response against the query that produced it without having
+    // to remember prior calls. Use `reportia_movements_export_excel`
+    // (writes to disk) when the date range is expected to return more
+    // than ~5000 rows — large JSON responses can exceed the stdio
+    // transport cap and get killed mid-flight.
+    'Si esperás más de ~5000 filas en el rango, usá `reportia_movements_export_excel` ' +
+    'en vez de iterar con `limit` — es más eficiente y no excede el cap del transporte.',
   inputSchema: ListFiltersInput,
   handler: async (input, ctx) => {
     try {
@@ -121,7 +133,7 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
       // `movements` segment) is kept for the SPA's report UI; the LLM
       // never hit it because its response payload crossed the upstream
       // byte cap and got blocked with `process_blocked: output_too_large`.
-      const data = await ctx.client.call(`/api/companies/${companyId}/movements`, {
+      const data = (await ctx.client.call(`/api/companies/${companyId}/movements`, {
         method: 'GET',
         query: {
           dateFrom: input.dateFrom,
@@ -133,8 +145,32 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
           limit: input.limit,
           offset: input.offset,
         },
+      })) as { movements?: unknown[]; total?: number; limit?: number; offset?: number };
+
+      // REQ-MCP-07 — response echo. Wrap the upstream response with the
+      // resolved query so the LLM can verify each response against the
+      // exact call it just made. This is the loud-failure pattern: if
+      // the LLM ever sees rows whose `date` doesn't fall in the echoed
+      // `query.dateFrom..dateTo` range, it can detect that something is
+      // wrong without having to remember prior tool calls.
+      const echoedQuery = {
+        companyId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        nit: input.nit,
+        numeroDocumento: input.numeroDocumento,
+        tipoComprobante: input.tipoComprobante,
+        emailStatus: input.emailStatus,
+        limit: input.limit,
+        offset: input.offset,
+      };
+      return ok({
+        query: echoedQuery,
+        movements: data.movements ?? [],
+        total: data.total ?? 0,
+        limit: data.limit ?? input.limit ?? 100,
+        offset: data.offset ?? input.offset ?? 0,
       });
-      return ok(data);
     } catch (err) {
       return fail(err);
     }

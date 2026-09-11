@@ -260,3 +260,77 @@ describe('schema split — ExportInput no longer extends ListFiltersInput (REQ-M
     expect(keys).not.toContain('endDate');
   });
 });
+
+// ----------------------------------------------------------------------------
+// REQ-MCP-07 — response echo. Incident 2026-09-10: the LLM confused two
+// different calls (one with limit=100, one with limit=1000) and reported
+// that the date filter was "broken" because rows from both calls leaked
+// into the same context. The fix: the response echoes the *actual* filter
+// that produced it, so the LLM can verify that what it sees matches the
+// query it just made. This is the loud-failure pattern: the LLM must be
+// able to detect "the data I just got does not match the query I just
+// made" without having to remember prior calls.
+// ----------------------------------------------------------------------------
+
+describe('reportia_movements_list — response echoes the resolved query (REQ-MCP-07)', () => {
+  it('returns { query, movements, total, limit, offset } with query echoing the resolved filters', async () => {
+    const upstreamResponse = {
+      movements: [
+        { id: 1, accountCode: '11050501', value: '1000' },
+        { id: 2, accountCode: '11050501', value: '500' },
+      ],
+      total: 850,
+      limit: 1000,
+      offset: 0,
+    };
+    const callSpy = vi.fn().mockResolvedValue(upstreamResponse);
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-07',
+      limit: 1000,
+      offset: 0,
+    });
+    if (!parsed.success) throw new Error('schema rejected valid payload');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    // `ok()` wraps the data as { ok: true, content: JSON.stringify(data), data }.
+    // The content field is a JSON string; `data` is the unwrapped object.
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    expect(payload).toHaveProperty('query');
+    expect(payload.query).toMatchObject({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-07',
+      limit: 1000,
+      offset: 0,
+    });
+    expect(payload.movements).toEqual(upstreamResponse.movements);
+    expect(payload.total).toBe(850);
+    expect(payload.limit).toBe(1000);
+    expect(payload.offset).toBe(0);
+  });
+
+  it('echoes the resolved defaults when caller omits them (so LLM can see the actual cap applied)', async () => {
+    const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0, limit: 100, offset: 0 });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({ companyId: 1 });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    // El echo debe mostrar el limit y offset resueltos, no undefined.
+    // Asi el LLM ve "yo pedi sin limit, el server uso 100" y puede
+    // decidir si pedir mas o usar export.
+    expect(payload.query).toMatchObject({
+      companyId: 1,
+      limit: 100,
+      offset: 0,
+    });
+    expect((payload.query as Record<string, unknown>).dateFrom).toBeUndefined();
+    expect((payload.query as Record<string, unknown>).dateTo).toBeUndefined();
+  });
+});
