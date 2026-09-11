@@ -49,35 +49,37 @@ function ctxWithSpy(spy: ReturnType<typeof vi.fn>): ToolContext {
 
 describe('reportia_movements_list — schema accepts and validates limit', () => {
   it('accepts a positive integer limit (1-1000)', () => {
-    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 1 });
+    // REQ-MCP-OUTPUT-04: any companyId-only call now requires a filter.
+    // Add a no-op date range so the tests below can focus on `limit`.
+    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 1, dateFrom: '2026-02-01' });
     expect(r1.success).toBe(true);
-    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: 1000 });
+    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: 1000, dateFrom: '2026-02-01' });
     expect(r2.success).toBe(true);
-    const r3 = listTool.inputSchema.safeParse({ companyId: 1, limit: 50 });
+    const r3 = listTool.inputSchema.safeParse({ companyId: 1, limit: 50, dateFrom: '2026-02-01' });
     expect(r3.success).toBe(true);
   });
 
-  it('accepts a payload without limit (defaults are applied)', () => {
-    const r = listTool.inputSchema.safeParse({ companyId: 1 });
+  it('accepts a payload with filter but no limit (defaults are applied)', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, dateFrom: '2026-02-01' });
     expect(r.success).toBe(true);
   });
 
   it('rejects limit < 1', () => {
-    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 0 });
+    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 0, dateFrom: '2026-02-01' });
     expect(r1.success).toBe(false);
-    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: -5 });
+    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: -5, dateFrom: '2026-02-01' });
     expect(r2.success).toBe(false);
   });
 
   it('rejects limit > 1000', () => {
-    const r = listTool.inputSchema.safeParse({ companyId: 1, limit: 1001 });
+    const r = listTool.inputSchema.safeParse({ companyId: 1, limit: 1001, dateFrom: '2026-02-01' });
     expect(r.success).toBe(false);
   });
 
   it('rejects non-integer limit', () => {
-    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 3.14 });
+    const r1 = listTool.inputSchema.safeParse({ companyId: 1, limit: 3.14, dateFrom: '2026-02-01' });
     expect(r1.success).toBe(false);
-    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: '50' });
+    const r2 = listTool.inputSchema.safeParse({ companyId: 1, limit: '50', dateFrom: '2026-02-01' });
     expect(r2.success).toBe(false);
   });
 });
@@ -86,7 +88,12 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
   it('passes the explicit limit as `limit` query param', async () => {
     const callSpy = vi.fn().mockResolvedValue({ rows: [] });
     const ctx = ctxWithSpy(callSpy);
-    const parsed = listTool.inputSchema.safeParse({ companyId: 1, limit: 25 });
+    // REQ-MCP-OUTPUT-04: must pass a row-narrowing filter to succeed.
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      limit: 25,
+      dateFrom: '2026-02-01',
+    });
     if (!parsed.success) throw new Error('schema rejected valid payload');
 
     await listTool.handler(parsed.data, ctx);
@@ -99,7 +106,10 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
   it('passes the default limit (100) when none is provided', async () => {
     const callSpy = vi.fn().mockResolvedValue({ rows: [] });
     const ctx = ctxWithSpy(callSpy);
-    const parsed = listTool.inputSchema.safeParse({ companyId: 1 });
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+    });
     if (!parsed.success) throw new Error('schema rejected valid payload');
 
     await listTool.handler(parsed.data, ctx);
@@ -138,7 +148,11 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
   it('calls the NEW raw-data endpoint /api/companies/:companyId/movements (not the old report endpoint)', async () => {
     const callSpy = vi.fn().mockResolvedValue({ rows: [], total: 0 });
     const ctx = ctxWithSpy(callSpy);
-    const parsed = listTool.inputSchema.safeParse({ companyId: 7, limit: 25 });
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 7,
+      limit: 25,
+      dateFrom: '2026-02-01',
+    });
     if (!parsed.success) throw new Error('schema rejected valid payload');
 
     await listTool.handler(parsed.data, ctx);
@@ -157,20 +171,23 @@ describe('reportia_movements_list — handler forwards limit to upstream', () =>
     const ctx = ctxWithSpy(callSpy);
 
     // Default offset is 0
-    const p1 = listTool.inputSchema.safeParse({ companyId: 1 });
+    const p1 = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+    });
     if (!p1.success) throw new Error('schema rejected');
     await listTool.handler(p1.data, ctx);
     expect(callSpy.mock.calls[0][1]?.query?.['offset']).toBe(0);
 
     // Custom offset forwarded as-is
-    const p2 = listTool.inputSchema.safeParse({ companyId: 1, offset: 250 });
+    const p2 = listTool.inputSchema.safeParse({ companyId: 1, offset: 250, dateFrom: '2026-02-01' });
     if (!p2.success) throw new Error('schema rejected');
     await listTool.handler(p2.data, ctx);
     expect(callSpy.mock.calls[1][1]?.query?.['offset']).toBe(250);
   });
 
   it('rejects negative offset', () => {
-    const r = listTool.inputSchema.safeParse({ companyId: 1, offset: -1 });
+    const r = listTool.inputSchema.safeParse({ companyId: 1, offset: -1, dateFrom: '2026-02-01' });
     expect(r.success).toBe(false);
   });
 });
@@ -253,11 +270,33 @@ describe('schema split — ExportInput no longer extends ListFiltersInput (REQ-M
   });
 
   it('ListFiltersInput.shape exposes dateFrom/dateTo and NOT startDate/endDate', () => {
-    const keys = Object.keys(listTool.inputSchema.shape).sort();
-    expect(keys).toContain('dateFrom');
-    expect(keys).toContain('dateTo');
-    expect(keys).not.toContain('startDate');
-    expect(keys).not.toContain('endDate');
+    // REQ-MCP-OUTPUT-04: after .superRefine() + .strict(), the schema's
+    // shape is a chained ZodEffects whose `.shape` is undefined. We
+    // confirm the schema keys via `safeParse` with a known-good
+    // payload — the rejection on an unknown key (REJECTED_KEYS) is
+    // what proves the strict() chain still holds.
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-28',
+      startDate: '2026-02-01',
+      endDate: '2026-02-28',
+    });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    // The strict() error must name `startDate` and `endDate` as the
+    // rejected keys. That proves ListFiltersInput rejects these and
+    // therefore does NOT accept them as fields.
+    const codes = r.error.issues.map((i) => i.code);
+    expect(codes).toContain('unrecognized_keys');
+    const keys = r.error.issues.flatMap((i) => i.keys ?? []);
+    expect(keys).toContain('startDate');
+    expect(keys).toContain('endDate');
+    // The known-good date fields are NOT rejected.
+    const dateFieldIssues = r.error.issues.filter(
+      (i) => i.path.includes('dateFrom') || i.path.includes('dateTo'),
+    );
+    expect(dateFieldIssues).toHaveLength(0);
   });
 });
 
@@ -316,7 +355,11 @@ describe('reportia_movements_list — response echoes the resolved query (REQ-MC
   it('echoes the resolved defaults when caller omits them (so LLM can see the actual cap applied)', async () => {
     const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0, limit: 100, offset: 0 });
     const ctx = ctxWithSpy(callSpy);
-    const parsed = listTool.inputSchema.safeParse({ companyId: 1 });
+    // REQ-MCP-OUTPUT-04: must pass at least one filter.
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+    });
     if (!parsed.success) throw new Error('schema rejected');
 
     const result = await listTool.handler(parsed.data, ctx);
@@ -330,7 +373,7 @@ describe('reportia_movements_list — response echoes the resolved query (REQ-MC
       limit: 100,
       offset: 0,
     });
-    expect((payload.query as Record<string, unknown>).dateFrom).toBeUndefined();
+    expect((payload.query as Record<string, unknown>).dateFrom).toBe('2026-02-01');
     expect((payload.query as Record<string, unknown>).dateTo).toBeUndefined();
   });
 });
@@ -351,20 +394,22 @@ describe('reportia_movements_list — response echoes the resolved query (REQ-MC
 // the no-filter call before reasoning about the data.
 // ----------------------------------------------------------------------------
 
-describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one real filter', () => {
-  it('rejects a payload with only companyId + limit (no date/NIT/tipo/etc filter) — common LLM mistake', () => {
+describe('reportia_movements_list — REQ-MCP-OUTPUT-03/04 require at least one real filter', () => {
+  // REQ-MCP-OUTPUT-04 supersedes REQ-MCP-OUTPUT-03: the warning-only
+  // approach (handler-level) was insufficient. The schema now
+  // rejects no-filter calls at parse time. This describe block keeps
+  // the handler-level warning as a SECOND-LINE defense for the
+  // explicit `confirmBroadQuery: true` path (when the LLM really
+  // wants the full table), and updates the no-filter case to expect
+  // parse-time rejection.
+
+  it('rejects a payload with only companyId + limit at parse time (no date/NIT/tipo/etc filter)', () => {
     const r = listTool.inputSchema.safeParse({ companyId: 1, limit: 100 });
-    // We still ALLOW the schema to parse (the LLM is making a legitimate
-    // call, just one that the handler will warn about) — so .safeParse
-    // succeeds. The actual enforcement happens in the handler via the
-    // `warnings` field on the response, which the LLM sees and can
-    // act on. This test pins that contract: parsing does not block,
-    // but the handler MUST emit a warning when only pagination params
-    // are set.
-    expect(r.success).toBe(true);
+    // REQ-MCP-OUTPUT-04: parse-time rejection (was REQ-MCP-OUTPUT-03 warning).
+    expect(r.success).toBe(false);
   });
 
-  it('handler emits a "no_filter" warning when called with only companyId + limit', async () => {
+  it('handler emits a "no_filter" warning ONLY when confirmBroadQuery=true is explicit', async () => {
     const callSpy = vi.fn().mockResolvedValue({
       movements: [],
       total: 0,
@@ -372,15 +417,19 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       offset: 0,
     });
     const ctx = ctxWithSpy(callSpy);
-    const parsed = listTool.inputSchema.safeParse({ companyId: 1, limit: 100 });
-    if (!parsed.success) throw new Error('schema rejected');
+    // REQ-MCP-OUTPUT-04: confirmBroadQuery is the only way to make a
+    // no-filter call succeed. The response still carries a NO_FILTER
+    // warning so the LLM can see "yes you really did this".
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      limit: 100,
+      confirmBroadQuery: true,
+    });
+    if (!parsed.success) throw new Error('schema rejected confirmBroadQuery=true');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
 
-    // Loud-failure pattern: the response carries a `warnings` array
-    // so the LLM can see "you called without filters, you probably
-    // didn't mean to" without having to remember prior calls.
     expect(payload).toHaveProperty('warnings');
     const warnings = payload.warnings as Array<{ code: string; message: string }>;
     expect(Array.isArray(warnings)).toBe(true);
@@ -401,7 +450,7 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       dateFrom: '2026-02-01',
       dateTo: '2026-02-28',
     });
-    if (!parsed.success) throw new Error('schema rejected');
+    if (!parsed.success) throw new Error('schema rejected valid payload');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
@@ -418,7 +467,7 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       companyId: 1,
       nit: '900123456',
     });
-    if (!parsed.success) throw new Error('schema rejected');
+    if (!parsed.success) throw new Error('schema rejected valid payload');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
@@ -434,7 +483,7 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       companyId: 1,
       tipoComprobante: 'factura',
     });
-    if (!parsed.success) throw new Error('schema rejected');
+    if (!parsed.success) throw new Error('schema rejected valid payload');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
@@ -450,7 +499,7 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       companyId: 1,
       numeroDocumento: '7143',
     });
-    if (!parsed.success) throw new Error('schema rejected');
+    if (!parsed.success) throw new Error('schema rejected valid payload');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
@@ -466,12 +515,119 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one rea
       companyId: 1,
       emailStatus: 'pending',
     });
-    if (!parsed.success) throw new Error('schema rejected');
+    if (!parsed.success) throw new Error('schema rejected valid payload');
 
     const result = await listTool.handler(parsed.data, ctx);
     const payload = (result as { data: unknown }).data as Record<string, unknown>;
 
     const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
     expect(warnings.map((w) => w.code)).not.toContain('NO_FILTER');
+  });
+});
+
+// ----------------------------------------------------------------------------
+// REQ-MCP-OUTPUT-04 (incident 2026-09-11): the NO_FILTER warning was
+// insufficient. The chat agent called reportia_movements_list without any
+// row-narrowing filter 4 times in a row despite the new system prompt
+// banning the pattern, and the warning was ignored. The fix at the Zod
+// layer: parse-time rejection. If the LLM passes companyId + pagination
+// params (limit, offset) only, with NO row-narrowing filter
+// (dateFrom, dateTo, nit, numeroDocumento, tipoComprobante, emailStatus),
+// the schema rejects the call BEFORE the upstream handler is invoked,
+// and the LLM sees a structured error explaining why. This converts
+// the warning into a hard error — the LLM cannot proceed without
+// supplying a filter, period.
+//
+// The only way to make a broad query (no filter) succeed is to pass an
+// explicit date range — even a very wide one like
+// dateFrom: "1900-01-01", dateTo: "2100-01-01" — that signals intent.
+// ----------------------------------------------------------------------------
+
+describe('reportia_movements_list — REQ-MCP-OUTPUT-04 require at least one row-narrowing filter (Zod)', () => {
+  it('rejects a payload with only companyId + limit (no filter) at parse time', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, limit: 100 });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    // The error must be loud and specific — the LLM should be able to
+    // self-correct without re-reading the source code.
+    const codes = r.error.issues.map((i) => i.code);
+    expect(codes).toContain('custom');
+    const messages = r.error.issues.map((i) => i.message);
+    expect(messages.some((m) => /at least one row-narrowing filter/i.test(m))).toBe(true);
+    expect(messages.some((m) => /dateFrom|dateTo|nit|numeroDocumento|tipoComprobante|emailStatus/i.test(m))).toBe(true);
+  });
+
+  it('rejects a payload with only companyId + offset (no filter) at parse time', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, offset: 50 });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects an empty payload (no companyId, no filter)', () => {
+    const r = listTool.inputSchema.safeParse({});
+    expect(r.success).toBe(false);
+  });
+
+  it('accepts a payload with companyId + a wide date range (dateFrom=1900, dateTo=2100)', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '1900-01-01',
+      dateTo: '2100-01-01',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + only dateFrom (no upper bound)', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + only dateTo (no lower bound)', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateTo: '2026-02-28',
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + nit only', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, nit: '900123456' });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + numeroDocumento only', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, numeroDocumento: '7143' });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + tipoComprobante only', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, tipoComprobante: 'factura' });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + emailStatus only', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, emailStatus: 'pending' });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts a payload with companyId + multiple filters', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-28',
+      nit: '900123456',
+      limit: 50,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('the error message tells the LLM what filter to supply', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1 });
+    if (r.success) throw new Error('expected schema to reject');
+    const messages = r.error.issues.map((i) => i.message).join(' | ');
+    expect(messages).toMatch(/dateFrom|dateTo|nit|numeroDocumento|tipoComprobante|emailStatus/);
+    expect(messages.toLowerCase()).toContain('filter');
   });
 });

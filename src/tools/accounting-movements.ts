@@ -73,7 +73,54 @@ const ListFiltersInput = CompanyIdInput.extend({
   // (2026-09-07) supports offset-based pagination so agents can fetch
   // beyond the first page without re-running the same query. Default 0.
   offset: z.number().int().min(0).optional().default(0),
-}).strict();
+  // REQ-MCP-OUTPUT-04 (incident 2026-09-11): explicit opt-in to a
+  // broad/unfiltered query. Setting this to true tells the MCP layer
+  // "I know what I'm doing — this call returns the entire movements
+  // table for the company". The default is `false` so that any LLM
+  // call without a row-narrowing filter is rejected by the schema
+  // (see .superRefine below). To run an unfiltered query, the LLM
+  // passes `{ confirmBroadQuery: true, companyId, limit, offset }`. This
+  // makes the no-filter call an EXPLICIT, REVIEWABLE choice rather
+  // than a silent default — and the upstream `query.echo` still
+  // reflects `confirmBroadQuery: true` so the LLM can see it in the
+  // response payload.
+  confirmBroadQuery: z.boolean().optional().default(false),
+}).strict()
+  // REQ-MCP-OUTPUT-04 (incident 2026-09-11): the chat agent called
+  // reportia_movements_list 4 times in a row WITHOUT any row-narrowing
+  // filter, despite the system prompt explicitly banning the pattern.
+  // The `NO_FILTER` warning at the handler level (REQ-MCP-OUTPUT-03)
+  // was ignored. Defense in depth — part 2 (parse-time): if the LLM
+  // doesn't supply any of `dateFrom`/`dateTo`/`nit`/`numeroDocumento`/
+  // `tipoComprobante`/`emailStatus`, AND doesn't set
+  // `confirmBroadQuery: true`, the Zod schema rejects the call with a
+  // structured error that names the missing filters. The LLM cannot
+  // proceed without supplying one — soft warnings are bypassed, hard
+  // errors are not.
+  .superRefine((v, ctx) => {
+    const hasRowFilter =
+      v.dateFrom !== undefined ||
+      v.dateTo !== undefined ||
+      v.nit !== undefined ||
+      v.numeroDocumento !== undefined ||
+      v.tipoComprobante !== undefined ||
+      v.emailStatus !== undefined;
+    if (!hasRowFilter && v.confirmBroadQuery !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [],
+        message:
+          'At least one row-narrowing filter is required: dateFrom, dateTo, nit, ' +
+          'numeroDocumento, tipoComprobante, or emailStatus. Calling without any ' +
+          'filter returns the entire movements table for the company, which the ' +
+          'LLM may then confuse with filtered responses and report the filter as ' +
+          'broken (incident 2026-09-11). To make an unfiltered query, pass ' +
+          '`confirmBroadQuery: true` explicitly — this makes the no-filter choice ' +
+          'REVIEWABLE in the response `query` echo. Otherwise, supply the filter ' +
+          'the user asked for.',
+      });
+    }
+  });
 
 /** Esquema para exportacion a Excel/PDF. Duplica los campos de filtro del
  *  listado intencionalmente (REQ-MCP-03) — el endpoint de exportacion
@@ -161,21 +208,25 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
         numeroDocumento: input.numeroDocumento,
         tipoComprobante: input.tipoComprobante,
         emailStatus: input.emailStatus,
+        // REQ-MCP-OUTPUT-04: echo confirmBroadQuery so the LLM can see
+        // "yes, I really did opt into a broad query". When this is true
+        // and warnings[].code === 'NO_FILTER', the LLM knows it must
+        // self-cite this in its response to the user (or, more often,
+        // it should have supplied a filter instead).
+        confirmBroadQuery: input.confirmBroadQuery,
         limit: input.limit,
         offset: input.offset,
       };
 
-      // REQ-MCP-OUTPUT-03 (incident 2026-09-11): defense in depth against
-      // the LLM calling list_movements WITHOUT a filter. The system
-      // prompt in Cowork bans this pattern, but the MCP layer also
-      // emits a `NO_FILTER` warning so the LLM can detect its own
-      // mistake even if the prompt is forgotten. The warning is
-      // conditional: it fires only when no row-narrowing filter
-      // (date, nit, document number, document type, email status) was
-      // supplied. Pagination params (limit, offset) and companyId do
-      // not count — those are always present and don't narrow the
-      // result set.
-      const hasRowNarrowingFilter =
+      // REQ-MCP-OUTPUT-03 (incident 2026-09-10): the warning is the
+      // SECOND-LINE defense. The first line is the schema's parse-time
+      // rejection (REQ-MCP-OUTPUT-04) — a no-filter call now requires
+      // `confirmBroadQuery: true` to even reach the handler. The
+      // warning fires when the LLM explicitly opted into a broad
+      // query, so the LLM (and the operator reading the log) can see
+      // "yes, this call was unfiltered — by design". The warning is
+      // NEVER the first signal; the schema rejection is.
+      const hasRowFilter =
         input.dateFrom !== undefined ||
         input.dateTo !== undefined ||
         input.nit !== undefined ||
@@ -183,17 +234,19 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
         input.tipoComprobante !== undefined ||
         input.emailStatus !== undefined;
       const warnings: Array<{ code: string; message: string }> = [];
-      if (!hasRowNarrowingFilter) {
+      if (!hasRowFilter) {
+        // REQ-MCP-OUTPUT-04: this branch is only reachable when
+        // `confirmBroadQuery: true` was passed (otherwise the schema
+        // would have rejected the call). The warning is therefore an
+        // audit trail, not a prompt to the LLM.
         warnings.push({
           code: 'NO_FILTER',
           message:
-            'No row-narrowing filter (dateFrom, dateTo, nit, numeroDocumento, ' +
-            'tipoComprobante, emailStatus) was supplied. This call returns the ' +
-            'entire movements table for the company. If the user gave a date ' +
-            'range, a specific document, a NIT, or a document type, pass that ' +
-            'filter explicitly — otherwise the LLM may mix this unfiltered ' +
-            'response with filtered ones from prior calls and report the ' +
-            'upstream filter is broken (incident 2026-09-11).',
+            'No row-narrowing filter was supplied (confirmBroadQuery=true was set). ' +
+            'This call returns the entire movements table for the company. ' +
+            'The LLM opted into this explicitly; if it was not intentional, ' +
+            'the next call should pass at least one of dateFrom/dateTo/nit/' +
+            'numeroDocumento/tipoComprobante/emailStatus.',
         });
       }
 
