@@ -236,13 +236,35 @@ jobs:
     # fue idempotente (version ya publicada), igual queremos crear la
     # release — esa es la unica manera de que el workflow termine OK
     # en re-runs despues del primer publish exitoso.
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.validate.outputs.should_publish == 'true'
+    # Tambien en workflow_dispatch (manual retry para crear la release
+    # si los runs tag-push anteriores fallaron despues de publicar).
+    if: needs.validate.outputs.should_publish == 'true' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # En workflow_dispatch el ref es la branch (no tag), asi que
+      # determinamos el nombre del tag desde el input `version` que
+      # paso el operador (o derivamos de la version del package.json).
+      - name: Determinar tag
+        id: tagname
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            TAG="v$INPUT_VERSION"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tagname.outputs.tag }}
           generate_release_notes: true
           draft: false
