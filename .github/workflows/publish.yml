@@ -152,16 +152,30 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish
+      # Pre-check: si la version YA esta publicada en npm (de un run anterior
+      # que fallo solo en Verify por timing del CDN), skipeamos el publish
+      # y marcamos un output para que Verify y los jobs downstream
+      # avancen como si el publish fuera exitoso. Esto hace el workflow
+      # idempotente: re-runs no fallan.
+      - name: "Pre-check: version ya publicada?"
+        id: precheck
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          if npm view "@james.valencia/mcp-reportia@$VERSION" version >/dev/null 2>&1; then
+            echo "Version $VERSION ya esta en npm, skipeando publish."
+            echo "skip_publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $VERSION no encontrada en npm, publicando."
+            echo "skip_publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish (skip if already published)
+        if: steps.precheck.outputs.skip_publish != 'true'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Check si la version YA esta publicada (por un run anterior que
-      # solo fallo en Verify por timing del CDN). Si npm view la ve,
-      # el publish previo tuvo exito y este run es idempotente: skip
-      # el Verify y continuar con MCP Registry + GitHub Release.
-      - name: Verify (or skip if already published by a previous run)
+      - name: Verify
         id: verify
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
@@ -171,16 +185,6 @@ jobs:
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if OUT=$(npm view "@james.valencia/mcp-reportia@$VERSION" version 2>&1); then
               echo "OK: @james.valencia/mcp-reportia@$VERSION publicado (intento $i)"
-              echo "already_published=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            # EPUBLISHCONFLICT (no se puede re-publicar) significa que
-            # una version anterior YA esta publicada con este mismo
-            # numero. El publish de este run fallo pero la version
-            # existe. Marcamos como ya publicada para continuar.
-            if echo "$OUT" | grep -q "cannot publish over the previously published"; then
-              echo "ALREADY-PUBLISHED: la version $VERSION ya existe en npm (publish anterior exitoso)"
-              echo "already_published=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "Intento $i fallo: $OUT"
