@@ -198,10 +198,10 @@ jobs:
   # ---------------------------------------------------------------------
   publish-mcp-registry:
     name: publish to MCP Registry
+    # Si falla por duplicate version (la version ya esta publicada),
+    # el job entero debe continuar para que el release job corra. Marco
+    # `continue-on-error` en cada step que pueda fallar idempotentemente.
     needs: [validate, publish-npm]
-    # Solo saltar si el Gate explicito fallo. Si validate paso, avanza
-    # tanto si publish-npm publico en este run como si detecto que ya
-    # estaba publicada (idempotente).
     if: needs.validate.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -223,7 +223,11 @@ jobs:
       - name: Validate server.json
         run: ./mcp-publisher validate
 
+      # Si falla por duplicate version, la publicacion previa tuvo
+      # exito. Se permite continuar al release job sin marcar este
+      # job como failed.
       - name: Publish to MCP Registry
+        continue-on-error: true
         run: ./mcp-publisher publish
 
   # ---------------------------------------------------------------------
