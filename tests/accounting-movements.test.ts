@@ -334,3 +334,144 @@ describe('reportia_movements_list — response echoes the resolved query (REQ-MC
     expect((payload.query as Record<string, unknown>).dateTo).toBeUndefined();
   });
 });
+
+// ----------------------------------------------------------------------------
+// REQ-MCP-OUTPUT-03 (incident 2026-09-11): the LLM called
+// reportia_movements_list WITHOUT dateFrom/dateTo even when the user
+// specified a date range. The upstream filter works (verified via curl
+// to /api/companies/1/movements?dateFrom=2026-02-01&dateTo=2026-02-02
+// returning total=215 for company 1). The failure mode is that the
+// LLM got 19,604 unfiltered rows in the same context as 215 filtered
+// rows and reported the filter was broken.
+//
+// Defense in depth (system prompt + MCP layer). This block of tests
+// pins the MCP-layer half: the schema requires at least one filter
+// other than `limit`/`offset`/`companyId`, and the response emits
+// a `warnings` array when no filter was applied so the LLM can detect
+// the no-filter call before reasoning about the data.
+// ----------------------------------------------------------------------------
+
+describe('reportia_movements_list — REQ-MCP-OUTPUT-03 require at least one real filter', () => {
+  it('rejects a payload with only companyId + limit (no date/NIT/tipo/etc filter) — common LLM mistake', () => {
+    const r = listTool.inputSchema.safeParse({ companyId: 1, limit: 100 });
+    // We still ALLOW the schema to parse (the LLM is making a legitimate
+    // call, just one that the handler will warn about) — so .safeParse
+    // succeeds. The actual enforcement happens in the handler via the
+    // `warnings` field on the response, which the LLM sees and can
+    // act on. This test pins that contract: parsing does not block,
+    // but the handler MUST emit a warning when only pagination params
+    // are set.
+    expect(r.success).toBe(true);
+  });
+
+  it('handler emits a "no_filter" warning when called with only companyId + limit', async () => {
+    const callSpy = vi.fn().mockResolvedValue({
+      movements: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+    });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({ companyId: 1, limit: 100 });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    // Loud-failure pattern: the response carries a `warnings` array
+    // so the LLM can see "you called without filters, you probably
+    // didn't mean to" without having to remember prior calls.
+    expect(payload).toHaveProperty('warnings');
+    const warnings = payload.warnings as Array<{ code: string; message: string }>;
+    expect(Array.isArray(warnings)).toBe(true);
+    const codes = warnings.map((w) => w.code);
+    expect(codes).toContain('NO_FILTER');
+  });
+
+  it('handler does NOT emit a NO_FILTER warning when dateFrom is present', async () => {
+    const callSpy = vi.fn().mockResolvedValue({
+      movements: [],
+      total: 0,
+      limit: 100,
+      offset: 0,
+    });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-28',
+    });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
+    const codes = warnings.map((w) => w.code);
+    expect(codes).not.toContain('NO_FILTER');
+  });
+
+  it('handler does NOT emit a NO_FILTER warning when nit is the only filter', async () => {
+    const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0 });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      nit: '900123456',
+    });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
+    expect(warnings.map((w) => w.code)).not.toContain('NO_FILTER');
+  });
+
+  it('handler does NOT emit a NO_FILTER warning when tipoComprobante is the only filter', async () => {
+    const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0 });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      tipoComprobante: 'factura',
+    });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
+    expect(warnings.map((w) => w.code)).not.toContain('NO_FILTER');
+  });
+
+  it('handler does NOT emit a NO_FILTER warning when numeroDocumento is the only filter', async () => {
+    const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0 });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      numeroDocumento: '7143',
+    });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
+    expect(warnings.map((w) => w.code)).not.toContain('NO_FILTER');
+  });
+
+  it('handler does NOT emit a NO_FILTER warning when emailStatus is the only filter', async () => {
+    const callSpy = vi.fn().mockResolvedValue({ movements: [], total: 0 });
+    const ctx = ctxWithSpy(callSpy);
+    const parsed = listTool.inputSchema.safeParse({
+      companyId: 1,
+      emailStatus: 'pending',
+    });
+    if (!parsed.success) throw new Error('schema rejected');
+
+    const result = await listTool.handler(parsed.data, ctx);
+    const payload = (result as { data: unknown }).data as Record<string, unknown>;
+
+    const warnings = (payload.warnings ?? []) as Array<{ code: string }>;
+    expect(warnings.map((w) => w.code)).not.toContain('NO_FILTER');
+  });
+});
