@@ -1,5 +1,25 @@
 ﻿# Changelog
 
+## v0.3.5 - 2026-09-11
+
+### Defense in depth, take 3 (REQ-MCP-OUTPUT-05, incident 2026-09-11 round 3)
+
+The v0.3.4 parse-time rejection worked — but it had a subtle coupling bug. The MCP SDK (modelcontextprotocol/sdk) injects transport-level JSON-RPC metadata into every call envelope: `signal` (AbortSignal handle), `sessionId` (session identifier), `_meta` (implementation-defined metadata per spec 2025-03-26). With `.strict()` enabled in v0.3.4, the schema rejected these as `unrecognized_keys` BEFORE `.superRefine` could run. Result: even when the LLM passed `dateFrom: '2026-02-01'` correctly, the LLM received `"At least one row-narrowing filter is required"` — a misleading error that made the LLM conclude the upstream was broken.
+
+The fix: declare `signal`, `sessionId`, `_meta` as `z.unknown().optional()` (or `z.string().optional()` for `sessionId`) on the schema. They're accepted by the strict check, then `.superRefine` runs as before on the row-narrowing filter contract.
+
+- 4 new REQ-MCP-OUTPUT-05 tests pin the contract:
+  - Schema accepts transport metadata alongside a real filter (no false reject).
+  - Schema rejects a no-filter call WITHOUT short-circuiting on unrecognized_keys (so the LLM sees the row-filter error, not the transport error).
+  - Schema still rejects genuine typos (`startDate`, `endDate`, `someRandomTypo`) via `unrecognized_keys`.
+  - Schema still rejects arbitrary other unknown keys.
+- 109/109 tests pass (43 in accounting-movements, up from 39 in v0.3.4).
+- No type changes needed (`ToolDefinition<T extends z.ZodTypeAny>` already accommodates).
+
+### Why this matters
+
+`.strict()` runs before `.superRefine()`. When transport metadata was rejected as `unrecognized_keys`, the LLM saw the transport error first and never reached the helpful row-filter error. The chat agent's policy was "abort on repeated INVALID_INPUT" — so it stopped retrying, reporting the bug as "INVALID_INPUT, the filter didn't make it through". The fix ensures that the schema validates the **known** fields strictly (typos still rejected) while accepting the **transport** fields explicitly (so they don't masquerade as user-supplied unknown keys).
+
 ## v0.3.4 - 2026-09-11
 
 ### Defense in depth, take 2 (REQ-MCP-OUTPUT-04, incident 2026-09-11 round 2)

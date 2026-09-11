@@ -631,3 +631,89 @@ describe('reportia_movements_list — REQ-MCP-OUTPUT-04 require at least one row
     expect(messages.toLowerCase()).toContain('filter');
   });
 });
+
+// ----------------------------------------------------------------------------
+// REQ-MCP-OUTPUT-05 (incident 2026-09-11 round 3): production chat agent
+// passed `{companyId:1, dateFrom:'2026-02-01', dateTo:'2026-02-02'}` as
+// expected — date filter was present — but the MCP framework ALSO injected
+// transport-level JSON-RPC metadata (`signal`, `sessionId`, `_meta`) into
+// the call envelope. v0.3.4's `.strict()` schema rejected the call with
+// `unrecognized_keys` BEFORE the `.superRefine` ran, so the LLM saw
+// "no filter was received" even though the filter was there. The LLM
+// then refused to retry (per the abort-on-repeated-error policy),
+// reporting the bug as "INVALID_INPUT, the filter didn't make it
+// through".
+//
+// The fix: keep `.strict()` for typo protection (still rejects `startDate`
+// /`endDate`/etc) but explicitly accept the MCP transport-level metadata
+// keys as optional, with `z.unknown()` so their shape is irrelevant.
+// `superRefine` still runs after the strict check on known keys, so the
+// "at least one row-narrowing filter" message reaches the LLM when the
+// actual filter is missing (the original REQ-MCP-OUTPUT-04 contract).
+// ----------------------------------------------------------------------------
+
+describe('reportia_movements_list — REQ-MCP-OUTPUT-05 accept MCP transport metadata', () => {
+  it('accepts the MCP transport metadata keys (signal, sessionId, _meta) added by the JSON-RPC envelope', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-02-02',
+      signal: { aborted: false },
+      sessionId: 'abc-123',
+      _meta: { trace: 'xyz', protocolVersion: '2025-03-26' },
+    });
+    if (!r.success) {
+      // Show the issues so a future regression is diagnosable.
+      throw new Error(
+        'schema rejected transport metadata: ' +
+          JSON.stringify(r.error.issues, null, 2),
+      );
+    }
+    expect(r.success).toBe(true);
+    expect(r.data.dateFrom).toBe('2026-02-01');
+    expect(r.data.dateTo).toBe('2026-02-02');
+  });
+
+  it('accepts only the transport metadata keys with no filter, so superRefine still runs (not short-circuited by strict)', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      signal: { aborted: false },
+      sessionId: 'abc-123',
+      _meta: { trace: 'xyz' },
+    });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    // The error must be the row-filter one (REQ-MCP-OUTPUT-04), NOT the
+    // "unrecognized keys" error (which would mean the strict() check
+    // short-circuited before superRefine).
+    const messages = r.error.issues.map((i) => i.message).join(' | ');
+    expect(messages).toMatch(/at least one row-narrowing filter/i);
+    const codes = r.error.issues.map((i) => i.code);
+    expect(codes).not.toContain('unrecognized_keys');
+  });
+
+  it('still rejects genuine typos (startDate / endDate) with the strict() error', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      startDate: '2026-02-01', // typo: old name from before REQ-MCP-01
+      endDate: '2026-02-28', // typo: old name from before REQ-MCP-01
+    });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    const codes = r.error.issues.map((i) => i.code);
+    expect(codes).toContain('unrecognized_keys');
+    const keys = r.error.issues.flatMap((i) => i.keys ?? []);
+    expect(keys).toContain('startDate');
+    expect(keys).toContain('endDate');
+  });
+
+  it('still rejects arbitrary other unknown keys (defense-in-depth against LLM typos)', () => {
+    const r = listTool.inputSchema.safeParse({
+      companyId: 1,
+      dateFrom: '2026-02-01',
+      someRandomTypo: 'whatever',
+    });
+    expect(r.success).toBe(false);
+  });
+});
