@@ -164,12 +164,46 @@ const ListTool: ToolDefinition<typeof ListFiltersInput> = {
         limit: input.limit,
         offset: input.offset,
       };
+
+      // REQ-MCP-OUTPUT-03 (incident 2026-09-11): defense in depth against
+      // the LLM calling list_movements WITHOUT a filter. The system
+      // prompt in Cowork bans this pattern, but the MCP layer also
+      // emits a `NO_FILTER` warning so the LLM can detect its own
+      // mistake even if the prompt is forgotten. The warning is
+      // conditional: it fires only when no row-narrowing filter
+      // (date, nit, document number, document type, email status) was
+      // supplied. Pagination params (limit, offset) and companyId do
+      // not count — those are always present and don't narrow the
+      // result set.
+      const hasRowNarrowingFilter =
+        input.dateFrom !== undefined ||
+        input.dateTo !== undefined ||
+        input.nit !== undefined ||
+        input.numeroDocumento !== undefined ||
+        input.tipoComprobante !== undefined ||
+        input.emailStatus !== undefined;
+      const warnings: Array<{ code: string; message: string }> = [];
+      if (!hasRowNarrowingFilter) {
+        warnings.push({
+          code: 'NO_FILTER',
+          message:
+            'No row-narrowing filter (dateFrom, dateTo, nit, numeroDocumento, ' +
+            'tipoComprobante, emailStatus) was supplied. This call returns the ' +
+            'entire movements table for the company. If the user gave a date ' +
+            'range, a specific document, a NIT, or a document type, pass that ' +
+            'filter explicitly — otherwise the LLM may mix this unfiltered ' +
+            'response with filtered ones from prior calls and report the ' +
+            'upstream filter is broken (incident 2026-09-11).',
+        });
+      }
+
       return ok({
         query: echoedQuery,
         movements: data.movements ?? [],
         total: data.total ?? 0,
         limit: data.limit ?? input.limit ?? 100,
         offset: data.offset ?? input.offset ?? 0,
+        warnings: warnings.length > 0 ? warnings : undefined,
       });
     } catch (err) {
       return fail(err);
