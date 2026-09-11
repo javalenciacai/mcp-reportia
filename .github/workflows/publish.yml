@@ -112,6 +112,11 @@ jobs:
           else:
             print('server.json ya sincronizado')
           "
+          # Set git identity for the sync commit (GitHub Actions runners
+          # default to empty ident, which makes `git commit` fail with
+          # "Author identity unknown" — caught during the v0.3.2 release).
+          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
           git diff --exit-code server.json || git commit -am "ci: sync server.json a v$VERSION"
 
   # ---------------------------------------------------------------------
