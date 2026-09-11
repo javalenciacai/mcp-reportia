@@ -40,10 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      outputs:
-        version: ${{ steps.bump.outputs.version }}
-        should_publish: ${{ steps.gate.outputs.should_publish }}
-        already_published: ${{ steps.verify.outputs.already_published }}
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      should_publish: ${{ steps.gate.outputs.should_publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -196,6 +195,9 @@ jobs:
   publish-mcp-registry:
     name: publish to MCP Registry
     needs: [validate, publish-npm]
+    # Solo saltar si el Gate explicito fallo. Si validate paso, avanza
+    # tanto si publish-npm publico en este run como si detecto que ya
+    # estaba publicada (idempotente).
     if: needs.validate.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -226,7 +228,11 @@ jobs:
   release:
     name: github release
     needs: [publish-npm, publish-mcp-registry]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # Solo en tag push Y que validate haya pasado (gate). Si publish-npm
+    # fue idempotente (version ya publicada), igual queremos crear la
+    # release — esa es la unica manera de que el workflow termine OK
+    # en re-runs despues del primer publish exitoso.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.validate.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
