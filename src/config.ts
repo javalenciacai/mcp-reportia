@@ -36,7 +36,7 @@ function parseIntStrict(value: string | undefined, fallback: number): number {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const base = val(env, 'REPORTIA_BASE_URL');
   if (!base) throw new ConfigError('REPORTIA_BASE_URL es obligatorio.');
-  const raw = {
+  const   raw = {
     baseUrl: base.replace(/\/+$/, ''),
     email: val(env, 'REPORTIA_EMAIL'),
     password: val(env, 'REPORTIA_PASSWORD'),
@@ -44,7 +44,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     cookie: val(env, 'REPORTIA_COOKIE'),
     companyId: val(env, 'REPORTIA_COMPANY_ID') === undefined ? undefined : Number(val(env, 'REPORTIA_COMPANY_ID')),
     timeoutMs: parseIntStrict(val(env, 'REPORTIA_TIMEOUT_MS'), 30000),
-    downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(process.cwd(), 'downloads')),
+    // Default robusto: tmpdir del SO + 'mcp-reportia'. NO usar
+    // process.cwd()/downloads — asume que el cwd es escribible y eso
+    // no se cumple en containers donde cwd=/app y el FS es readonly
+    // o no tiene permisos para mkdir. El bug EACCES del 2026-09-10
+    // fue exactamente esto: el container del MCP en Cowork.CTis
+    // intento `mkdir '/app/downloads'` y revento.
+    // Si REPORTIA_DOWNLOAD_DIR esta seteada (produccion, con /data/artifacts),
+    // se respeta — tmpdir es solo el piso de default.
+    downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(os.tmpdir(), 'mcp-reportia')),
     userAgent: val(env, 'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0',
     maxDownloadBytes: parseIntStrict(val(env, 'REPORTIA_MAX_DOWNLOAD_BYTES'), 100 * 1024 * 1024),
   };
