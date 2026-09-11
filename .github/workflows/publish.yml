@@ -262,7 +262,24 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      # Si la release ya existe (re-runs idempotentes, o el primer
+      # workflow tag-push ya la creo), no fallamos el workflow. El step
+      # `Create release` de softprops/action-gh-release ya hace upsert
+      # en muchas versiones, pero por seguridad usamos un check explicito.
+      - name: Check si la release ya existe
+        id: releaseexists
+        run: |
+          TAG="${{ steps.tagname.outputs.tag }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release para $TAG ya existe, skipeando creacion."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release para $TAG no existe, se creara."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
+        if: steps.releaseexists.outputs.exists != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tagname.outputs.tag }}
