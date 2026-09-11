@@ -12,8 +12,15 @@ import { describeError, ReportiaError } from './errors.js';
  * Las colecciones de tools se tipan como `ToolDefinition<any>[]` porque Zod
  * hace invariantes sus genéricos de entrada. El schema concreto sigue siendo
  * el que valida cada llamada en runtime.
+ *
+ * REQ-MCP-OUTPUT-04: the schema bound is widened from `z.AnyZodObject`
+ * to `z.ZodTypeAny` because `ListFiltersInput` is now wrapped in
+ * `.strict().superRefine(...)`, which yields a `ZodEffects` (a wider
+ * schema type). The runtime shape contract is unchanged — the schema
+ * still parses the same shape with the same `confirmBroadQuery` opt-in
+ * — but the type signature has to accommodate the wrapping.
  */
-export interface ToolDefinition<TSchema extends z.AnyZodObject = z.AnyZodObject> {
+export interface ToolDefinition<TSchema extends z.ZodTypeAny = z.AnyZodObject> {
   name: string;
   description: string;
   inputSchema: TSchema;

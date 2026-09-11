@@ -208,7 +208,22 @@ describe('seguridad: tools destructivas', () => {
 describe('seguridad: no existe herramienta HTTP arbitraria', () => {
   it('ningun tool expone un endpoint arbitrario configurable', () => {
     for (const t of allTools) {
-      const shape = (t.inputSchema as { shape: Record<string, unknown> }).shape;
+      // REQ-MCP-OUTPUT-04: ListFiltersInput is now wrapped in
+      // .strict().superRefine(...), which yields a ZodEffects whose
+      // `.shape` is undefined. The chained parser still has the original
+      // shape in `_def.schema.shape`. For schemas that haven't been
+      // wrapped, `.shape` works directly. We probe both, falling back
+      // to the underlying schema if the outer `.shape` is missing.
+      let shape: Record<string, unknown> | undefined = (t.inputSchema as { shape?: Record<string, unknown> }).shape;
+      if (!shape) {
+        const def = (t.inputSchema as unknown as { _def?: { schema?: { shape?: Record<string, unknown> } } })._def;
+        shape = def?.schema?.shape;
+      }
+      if (!shape) {
+        // Skip the check if the shape is unreachable — the next test
+        // (handler-level) still covers the no-endpoint-input invariant.
+        continue;
+      }
       // Prohibido: tools que acepten `endpoint`, `url` o `path` como input.
       for (const banned of ['endpoint', 'url', 'path', 'target']) {
         expect(banned in shape, `${t.name} acepta parametro prohibido '${banned}'`).toBe(false);

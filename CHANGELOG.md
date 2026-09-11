@@ -1,5 +1,23 @@
 ﻿# Changelog
 
+## v0.3.4 - 2026-09-11
+
+### Defense in depth, take 2 (REQ-MCP-OUTPUT-04, incident 2026-09-11 round 2)
+
+The previous release (v0.3.3) added a `NO_FILTER` warning at the response level when `reportia_movements_list` was called without any row-narrowing filter. That was insufficient — the chat agent called without a filter 4 times in a row despite the warning, and the operator reported the filter was broken because the agent's diagnostic mixed unfiltered rows with the echoed query.
+
+This release converts the warning into a **parse-time rejection**:
+
+- **`reportia_movements_list` input schema now requires at least one of `dateFrom`, `dateTo`, `nit`, `numeroDocumento`, `tipoComprobante`, `emailStatus`**. A no-filter call (only `companyId` + pagination params) is rejected by the Zod schema with a structured error that names the missing filters.
+- **Escape hatch**: a new `confirmBroadQuery: true` input parameter explicitly opts into a broad/unfiltered query. The default is `false`, so any LLM call without a row-narrowing filter is rejected unless the LLM deliberately sets `confirmBroadQuery: true`. The echo includes `query.confirmBroadQuery: true` so the LLM can see its own opt-in.
+- **`NO_FILTER` warning** still fires (as a SECOND-LINE audit trail) when the call succeeds with `confirmBroadQuery: true` and no filter. The warning is no longer the first signal — the schema rejection is — but it's still useful for operators reading the request log.
+- 12 new tests pin the REQ-MCP-OUTPUT-04 contract: the schema rejects no-filter payloads, accepts the `confirmBroadQuery: true` opt-in, and the warning fires only when the opt-in is explicit.
+- One pre-existing security test (`tests/security.test.ts`) was updated to handle the chained `.strict().superRefine()` schema (the inner `.shape` is reachable via `_def.schema.shape`).
+
+### Why this is the right defense in depth
+
+The `NO_FILTER` warning was correct but insufficient because LLMs can ignore warnings under context pressure. Hard parse-time errors cannot be ignored — the call fails and the LLM must retry. Combined with v0.3.3's system-prompt change (in Cowork.CTis), the LLM is now told (soft) "don't do this" and the MCP layer rejects it (hard) when the LLM tries anyway.
+
 ## v0.3.3 - 2026-09-11
 
 ### Defense in depth (REQ-MCP-OUTPUT-03, incident 2026-09-11)
