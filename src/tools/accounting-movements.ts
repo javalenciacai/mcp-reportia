@@ -85,6 +85,28 @@ const ListFiltersInput = CompanyIdInput.extend({
   // reflects `confirmBroadQuery: true` so the LLM can see it in the
   // response payload.
   confirmBroadQuery: z.boolean().optional().default(false),
+  // REQ-MCP-OUTPUT-05 (incident 2026-09-11 round 3): the MCP framework
+  // (modelcontextprotocol/sdk) injects these transport-level JSON-RPC
+  // metadata fields into the call envelope. Without an explicit
+  // declaration, the schema's `.strict()` rejects them as
+  // `unrecognized_keys` BEFORE the `.superRefine` runs, so the LLM
+  // receives "no filter was received" even when the filter IS present.
+  // The fix: declare them as `z.unknown().optional()` so the strict()
+  // check passes on known fields and `superRefine` can then validate
+  // the row-narrowing filter contract (REQ-MCP-OUTPUT-04).
+  //
+  //   signal     — AbortSignal handle (JSON-RPC cancellation), opaque
+  //   sessionId  — MCP session identifier for stateful transports
+  //   _meta      — implementation-defined metadata per spec 2025-03-26
+  //
+  // Their shape is intentionally `unknown` because:
+  //   1. The MCP SDK may evolve them across spec versions
+  //   2. The tool's handler never reads them — only the framework does
+  //   3. Declaring a concrete shape would create a new coupling to the
+  //      SDK's internals that would break on the next minor upgrade
+  signal: z.unknown().optional(),
+  sessionId: z.string().optional(),
+  _meta: z.unknown().optional(),
 }).strict()
   // REQ-MCP-OUTPUT-04 (incident 2026-09-11): the chat agent called
   // reportia_movements_list 4 times in a row WITHOUT any row-narrowing
