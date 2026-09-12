@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { createClient } from './client.js';
 import { allTools } from './tools/index.js';
-import { toToolCallResult } from './tool-base.js';
+import { extractRawShape, toToolCallResult } from './tool-base.js';
 
 export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) {
   const server = new McpServer({ name: 'mcp-reportia', version: '0.1.0' });
@@ -18,11 +18,21 @@ export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) 
       {
         description: tool.description,
         // SDK 1.30 accepts either a Zod schema instance or a raw shape
-        // (a plain object whose values are Zod schemas). The previous code
-        // passed a JSON-Schema-like object produced by `zodToInputShape`,
-        // which the SDK now rejects with "inputSchema must be a Zod schema
-        // or raw shape, received an unrecognized object".
-        inputSchema: tool.inputSchema.shape,
+        // (a plain object whose values are Zod schemas). The previous
+        // code passed `tool.inputSchema.shape`, which is `undefined` for
+        // wrapped schemas (`ZodEffects` from `.strict().superRefine()`,
+        // `ZodPipeline` from `.pipe()`). The SDK then silently substitutes
+        // `properties: {}`, dropping every LLM-supplied argument at
+        // registration time. `extractRawShape` drills through the
+        // wrappers and returns the raw shape the SDK actually needs.
+        //
+        // Cast: SDK's `AnySchema` is `z3.ZodTypeAny | z4.$ZodType` (a
+        // union across Zod major versions). Our helper returns Zod v3
+        // types only, which is fine at runtime — the SDK's
+        // `normalizeObjectSchema` widens them — but TypeScript needs an
+        // explicit `as any` because the SDK types and our Zod v3-only
+        // types are structurally distinct.
+        inputSchema: extractRawShape(tool.inputSchema) as any,
       },
       (async (args: any) => {
         const parsed = tool.inputSchema.safeParse(args ?? {});
