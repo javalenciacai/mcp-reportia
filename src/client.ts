@@ -210,6 +210,11 @@ export function createClient(config: AppConfig): ReportiaClient {
       body?: unknown;
       formData?: FormData;
       headers?: Record<string, string>;
+      // REQ-MCP-OUTPUT-04 chain round 5: declare `query` on rawFetch's
+      // internal options bag so the call site below can forward it to
+      // buildUrl without TypeScript silently dropping the argument at a
+      // structural-typing boundary.
+      query?: RequestOptions['query'];
       timeoutMs?: number;
       skipSession?: boolean;
     } = {},
@@ -259,7 +264,11 @@ export function createClient(config: AppConfig): ReportiaClient {
         init.body = body;
       }
 
-      const url = buildUrl(endpoint);
+      // REQ-MCP-OUTPUT-04 chain round 5: forward `opts.query` into buildUrl so
+      // every defined key (dateFrom, dateTo, limit, offset, nit, etc.) reaches
+      // the upstream Reportia endpoint. Previously called as buildUrl(endpoint),
+      // which silently dropped the entire query object.
+      const url = buildUrl(endpoint, opts.query);
       const res = await request(url, init);
       const buf = Buffer.from(await res.body.arrayBuffer());
       const headers = res.headers as Record<string, string | string[] | undefined>;
