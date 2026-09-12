@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## v0.3.7 - 2026-09-12
+
+### Fix `client.call()` dropping query params before HTTP request (REQ-MCP-OUTPUT-04 chain round 5)
+
+**Root cause**: `src/client.ts:262` read `const url = buildUrl(endpoint)` without passing `opts.query`. The `rawFetch` opts type also omitted `query`, so TypeScript's structural typing didn't flag the missing argument. As a result, every query parameter passed to MCP tools (`dateFrom`, `dateTo`, `limit`, `offset`, `nit`, `numeroDocumento`, `tipoComprobante`, `emailStatus`) was silently dropped before reaching Reportia's upstream endpoint. The MCP child returned the full table on every call — for movements, that's 19,604 rows instead of the filtered 215.
+
+**Why it took 5 iterations**: v0.3.4's parse-time rejection masked this bug — the schema rejected calls before they reached the client layer. v0.3.6's `extractRawShape` fix restored the call path but exposed this deeper client-layer bug.
+
+**Fix**: `rawFetch`'s opts type now declares `query?: RequestOptions['query']`, and `buildUrl(endpoint, opts.query)` forwards it. 2 lines total.
+
+**Tests**: New `tests/client.test.ts` (3 cases via undici monkey-patch) pins the URL-construction contract. Full suite 123/123 green.
+
 ## v0.3.6 - 2026-09-12
 
 ### Fix `tool.inputSchema.shape` undefined for ZodEffects (REQ-MCP-OUTPUT-04 regression)
