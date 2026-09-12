@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## v0.3.6 - 2026-09-12
+
+### Fix `tool.inputSchema.shape` undefined for ZodEffects (REQ-MCP-OUTPUT-04 regression)
+
+**Root cause**: `src/server.ts:25` read `tool.inputSchema.shape` to extract the raw shape for the MCP SDK. After v0.3.4 added `.strict().superRefine()` to `ListFiltersInput`, the schema became a `ZodEffects` whose `.shape` is `undefined`. The MCP SDK 1.30 silently substitutes `properties: {}` when inputSchema is undefined, dropping all LLM-supplied filter arguments while injecting its own context keys (signal, sessionId, _meta, requestId). The chat agent saw `INVALID_INPUT: unrecognized_keys: [signal, sessionId, _meta]` despite the schema correctly declaring those fields.
+
+**Fix**: New helper `extractRawShape(schema)` in `src/tool-base.ts` that drills through `ZodEffects` (`_def.schema`) and `ZodPipeline` (`_def.in`) wrappers. `server.ts:25` now calls `extractRawShape(tool.inputSchema)` instead of `.shape`. Plain ZodObjects get identical behavior to before (the helper returns `schema.shape` directly).
+
+**Tests**: New `tests/zod-shape.test.ts` (9 assertions for the helper covering plain ZodObject, `.superRefine`, `.refine`, `.pipe`, primitive, defensive fallback, multi-layer wrappers, key reachability) + new `tests/server.test.ts` (2 integration tests against the real MCP SDK 1.30 with ZodEffects inputSchema + a plain-ZodObject backward-compat test). Full suite 120/120 green.
+
 ## v0.3.5 - 2026-09-11
 
 ### Defense in depth, take 3 (REQ-MCP-OUTPUT-05, incident 2026-09-11 round 3)

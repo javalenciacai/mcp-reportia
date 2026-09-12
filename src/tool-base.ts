@@ -134,6 +134,74 @@ export function makeTool<TSchema extends z.AnyZodObject>(def: ToolDefinition<TSc
   return def;
 }
 
+/**
+ * Drill through wrapped Zod schemas to extract the raw shape that the
+ * @modelcontextprotocol/sdk accepts.
+ *
+ * Background — the v0.3.4 regression that motivated this helper:
+ *
+ *   `src/server.ts:25` previously read `tool.inputSchema.shape` and passed
+ *   the result to `registerTool`. For plain `ZodObject` schemas that
+ *   returns the shape (an object whose values are Zod schemas) — what the
+ *   SDK wants. But after v0.3.4 wrapped `ListFiltersInput` with
+ *   `.strict().superRefine(...)` to enforce REQ-MCP-OUTPUT-04, the schema
+ *   became a `ZodEffects`. `ZodEffects` does NOT expose `.shape` — its
+ *   shape lives on `._def.schema.shape`. Calling `.shape` returns
+ *   `undefined`. The MCP SDK 1.30 then silently substitutes
+ *   `properties: {}`, which drops every LLM-supplied argument at
+ *   registration time: the upstream HTTP call receives NO `dateFrom` /
+ *   `dateTo` filter, and the chat agent concludes "the filter is broken"
+ *   when in fact the filter was never registered.
+ *
+ * This helper fixes the regression for every known wrapper type:
+ *   - `ZodObject`     — return `.shape` (the SDK's expected form)
+ *   - `ZodEffects`    — recurse into `._def.schema` (`.refine()`, `.superRefine()`, `.transform()`)
+ *   - `ZodPipeline`   — recurse into `._def.in`    (`.pipe()`)
+ *   - primitives      — return the schema as-is (the SDK also accepts raw Zod primitives)
+ *   - unknown wrapper — return the schema as-is (defensive fallback; do NOT throw)
+ *
+ * Backward compatibility: any tool whose inputSchema is a plain
+ * `ZodObject` (no wrappers) gets the exact same behavior as before —
+ * the helper returns `schema.shape`, identical to the old
+ * `tool.inputSchema.shape` access. One-line swap in `server.ts:25` plus
+ * this helper restores the pre-v0.3.4 registration contract for ALL tools.
+ */
+export function extractRawShape(schema: z.ZodTypeAny): z.ZodTypeAny | Record<string, z.ZodTypeAny> {
+  if (!schema || typeof schema !== 'object') return schema;
+  // Zod 3 uses `_def.typeName` (e.g., "ZodEffects", "ZodObject"). The
+  // design doc's `schemaName` was a typo — verified against zod@3.23.x
+  // internals: `Object.keys(z.object({x}).strict().superRefine(()=>{})._def)`
+  // returns `[ 'schema', 'typeName', 'effect' ]`.
+  const def = (schema as { _def?: { typeName?: string; schema?: unknown; in?: unknown } })._def;
+
+  // ZodEffects (from .refine() or .superRefine()) wraps a ZodObject.
+  // Recurse so chained wrappers (.transform().refine().superRefine()) all
+  // collapse to the inner ZodObject.
+  if (def?.typeName === 'ZodEffects' && def.schema) {
+    return extractRawShape(def.schema as z.ZodTypeAny);
+  }
+
+  // ZodPipeline (from .pipe()) wraps with an `in` field that holds the
+  // source ZodObject. The output side (`._def.out`) is usually a
+  // different schema and not what the SDK wants at registration time.
+  if (def?.typeName === 'ZodPipeline' && def.in) {
+    return extractRawShape(def.in as z.ZodTypeAny);
+  }
+
+  // ZodObject — the actual shape the SDK wants. Prefer the documented
+  // `.shape` getter over poking `_def.shape` so we stay compatible across
+  // Zod minor versions.
+  if ('shape' in schema && typeof (schema as { shape: unknown }).shape === 'object') {
+    return (schema as { shape: Record<string, z.ZodTypeAny> }).shape;
+  }
+
+  // Primitive Zod (ZodString, ZodNumber, ZodBoolean, ZodEnum, ...) or
+  // unrecognized wrapper — pass through. The SDK accepts raw Zod
+  // schemas too, and the helper must never throw on inputs it does not
+  // recognize (defensive contract).
+  return schema;
+}
+
 /** Resuelve el companyId del input o usa el default. */
 export function resolveCompanyId(input: { companyId?: unknown }, ctx: ToolContext): number {
   const raw = input.companyId ?? ctx.defaultCompanyId;
