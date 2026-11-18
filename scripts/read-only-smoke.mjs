@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke del perfil de solo lectura (HU-0 · T0-07 y T0-08), a nivel de proceso.
+ * Smoke del perfil de solo lectura a nivel de proceso.
  *
  *  1) REPORTIA_READ_ONLY=true  -> initialize + tools/list = las 37 tools de
  *     `read-only-tools.json`, en ese conjunto exacto.

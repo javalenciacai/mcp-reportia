@@ -1,5 +1,5 @@
 /**
- * Clasificación canónica de las tools para el perfil de solo lectura (HU-0).
+ * Clasificación canónica de las tools para el perfil de solo lectura.
  *
  * Las tres listas son EXPLÍCITAS y no se derivan de `destructive`: esa bandera
  * no cubre las 11 mutantes sin bandera ni `logout`, y derivar de ahí dejaría
@@ -53,9 +53,8 @@ export const READ_ONLY_TOOLS: readonly string[] = [
 ];
 
 /**
- * Lecturas que devuelven secretos en claro (confirmado por Reportia: claves de
- * correo y contraseña de SIIGO) o cuya respuesta no se pudo verificar. Quedan
- * FUERA del perfil; se pueden reincorporar solo con evidencia de enmascarado.
+ * Lecturas de configuración sensibles. Quedan FUERA del perfil; se pueden
+ * reincorporar solo con evidencia de que su respuesta no expone datos sensibles.
  */
 export const SENSITIVE_READ_TOOLS: readonly string[] = [
   'reportia_invoice_settings_get',

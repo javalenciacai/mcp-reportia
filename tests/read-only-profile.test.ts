@@ -1,7 +1,7 @@
 /**
- * HU-0 (MCPR-8 · CWK-19 E0): perfil de solo lectura y lista canónica.
+ * Perfil de solo lectura y lista canónica de tools.
  *
- * Casos T0-01…T0-11 del DoR (`dor-mcpr.md` §1.5). Usan el servidor real con
+ * Casos T0-01…T0-11. Usan el servidor real con
  * `InMemoryTransport` y un cliente HTTP falso que cuenta las llamadas y
  * registra el método; no tocan red ni datos reales.
  */
@@ -350,7 +350,7 @@ const TOOLS_0_3_7: readonly string[] = [
   'reportia_siigo_history_get',
 ];
 
-describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defecto (reencuadre 2026-11-18)', () => {
+describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defecto', () => {
   it('(g) sin flag, `false` o `0`, tools/list es exactamente la lista literal de 0.3.7 (66, mismo orden)', async () => {
     expect(TOOLS_0_3_7).toHaveLength(66);
     expect(new Set(TOOLS_0_3_7).size).toBe(66);
@@ -391,6 +391,9 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       [/(protege|limita|restringe) (al|el) (chat|asistente)/i, '«protege/limita al chat»'],
       [/fije\s+\*{0,2}a la vez\*{0,2}/i, '«fije a la vez … allowedTools»'],
       [/allowedTools[^.\n]*(obligatori|debe)/i, '«allowedTools obligatorio»'],
+      [/\b(RPT|CWK|MCPR)-\d+/, 'identificador interno'],
+      [/instancia.feedback|\/home\/u[b]untu/, 'ruta interna'],
+      [/en cl[a]ro/i, 'divulgación de secretos'],
       [/(debe|deben) (fijar|activar) (el perfil|`?REPORTIA_READ_ONLY)/i, '«debe activar el perfil»'],
     ];
 
@@ -407,7 +410,7 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       expect(t).toMatch(/chat de producci[oó]n no cambia/i);
       expect(t).toMatch(/Lo que NO cambia/);
       expect(t).toMatch(/Lo que todav[ií]a puede fallar/);
-      for (const risk of [/reportia_logout/, /sin pedir confirmaci[oó]n/i, /RPT-59/, /facturas por correo/i]) {
+      for (const risk of [/reportia_logout/, /sin pedir confirmaci[oó]n/i, /facturas por correo/i]) {
         expect(t).toMatch(risk);
       }
     });

@@ -23,7 +23,7 @@ const ConfigSchema = z.object({
   userAgent: z.string().min(1).default('mcp-reportia/0.1.0'),
   maxDownloadBytes: z.number().int().positive().default(100 * 1024 * 1024),
   /**
-   * Perfil de solo lectura (HU-0 / CWK-19): con `REPORTIA_READ_ONLY=true` el
+   * Perfil de solo lectura: con `REPORTIA_READ_ONLY=true` el
    * servidor registra solo las tools de `read-only-tools.json` y fija la
    * empresa a `REPORTIA_COMPANY_ID`. Ausente = `false` (las 66 tools).
    */

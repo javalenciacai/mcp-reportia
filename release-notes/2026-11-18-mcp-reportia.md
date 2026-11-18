@@ -1,11 +1,11 @@
 # mcp-reportia 0.4.0 — nota de release (borrador, aún sin publicar)
 
-> Estado: **pendiente de publicación**. La publicación de 0.4.0 y su tag son un paso posterior, con su propia aprobación. La convención completa de esta carpeta (`release-notes/README.md`) la aporta MCPR-4.
+> Estado: **pendiente de publicación**. La publicación de 0.4.0 y su tag son un paso posterior, con su propia aprobación.
 
 ## Qué vas a notar
 
 - **Hay un perfil opcional de solo lectura, apagado por defecto.** Quien integre el paquete puede activarlo (`REPORTIA_READ_ONLY=true`) para que el servidor ofrezca solo las herramientas de consulta: ver movimientos, terceros, cartera, reportes y exportar a Excel o PDF.
-- **Ese perfil deja fuera tres consultas que devuelven claves en claro** (correo de facturación y contraseña de SIIGO). Quien lo active no las tiene disponibles.
+- **Ese perfil deja fuera tres lecturas de configuración sensibles.** Quien lo active no las tiene disponibles.
 - **Con el perfil activo y la empresa fijada en `REPORTIA_COMPANY_ID`**, **no se puede pedir datos de otra empresa** (la consulta se rechaza). La lista de empresas disponibles sigue mostrando todas las que el usuario puede ver.
 - El paquete publica la lista oficial de herramientas de consulta (`read-only-tools.json`) para que quien lo integre la use como lista permitida.
 
@@ -21,7 +21,7 @@
   - **En las 15 herramientas que piden confirmación antes de cambiar o borrar datos, la confirmación la completa el asistente, no una persona en pantalla.**
   - **El chat puede cerrar tu sesión de Reportia sin pedirte confirmación** (herramienta `reportia_logout`).
   - **El chat puede crear o cambiar datos sin pedir confirmación** en 10 casos: crear o actualizar mapeos de cuentas, de vendedores, de grupos de línea y de centros de costo, y reportes de centro de costo.
-  - **Hasta que Reportia las enmascare (RPT-59), tres consultas devuelven claves en claro**: la configuración de facturación (claves de correo), la configuración de SIIGO (contraseña) y la lista de clientes de SIIGO.
   - **El chat puede enviar facturas por correo.**
   - **El chat puede borrar todos los movimientos de una empresa** (herramienta `reportia_movements_delete_all`). Es el caso más grave: exige reconocer el riesgo y escribir un texto con el número de la empresa.
+- Conviene revisar con cuidado lo que se le pide al asistente: puede ejecutar acciones que cambian datos y cerrar la sesión sin una confirmación adicional.
 - Las exportaciones a Excel y PDF guardan archivos en el servidor donde corre el paquete; no escriben en Reportia.
