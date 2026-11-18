@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": 1
+  },
+  "period": {
+    "dateFrom": "2026-10-01",
+    "dateTo": "2026-10-31"
+  },
+  "generatedAt": "2026-11-18T12:00:00Z",
+  "lines": {
+    "income": {
+      "key": "4",
+      "label": "Ingresos (cuentas 4*)",
+      "resultClass": "income",
+      "leaf": false,
+      "debit": "20745580.00",
+      "credit": "400000000.00",
+      "amount": "379254420.00",
+      "movementCount": 2,
+      "provenance": {
+        "filter": {
+          "accountPrefix": "4",
+          "dateFrom": "2026-10-01",
+          "dateTo": "2026-10-31",
+          "excluded": [
+            "voided"
+          ]
+        }
+      },
+      "children": [
+        {
+          "key": "41",
+          "label": "41",
+          "resultClass": "income",
+          "leaf": false,
+          "debit": "20745580.00",
+          "credit": "400000000.00",
+          "amount": "379254420.00",
+          "movementCount": 2,
+          "provenance": {
+            "filter": {
+              "accountPrefix": "41",
+              "dateFrom": "2026-10-01",
+              "dateTo": "2026-10-31",
+              "excluded": [
+                "voided"
+              ]
+            }
+          },
+          "children": [
+            {
+              "key": "413505",
+              "label": "413505",
+              "resultClass": "income",
+              "leaf": true,
+              "debit": "0.00",
+              "credit": "400000000.00",
+              "amount": "400000000.00",
+              "movementCount": 1,
+              "provenance": {
+                "filter": {
+                  "account": "413505",
+                  "dateFrom": "2026-10-01",
+                  "dateTo": "2026-10-31",
+                  "excluded": [
+                    "voided"
+                  ]
+                }
+              },
+              "movements": {
+                "shownCount": 1,
+                "totalCount": 1,
+                "truncatedByBudget": false,
+                "remainder": {
+                  "count": 0,
+                  "debit": "0.00",
+                  "credit": "0.00"
+                },
+                "rows": [
+                  {
+                    "id": 1001,
+                    "date": "2026-10-05",
+                    "document": {
+                      "type": "F",
+                      "code": "FV",
+                      "number": "0001"
+                    },
+                    "account": "413505",
+                    "accountName": null,
+                    "description": "Venta",
+                    "third": {
+                      "nit": "900000001",
+                      "name": null
+                    },
+                    "direction": "C",
+                    "amount": "400000000.00"
+                  }
+                ]
+              }
+            },
+            {
+              "key": "417505",
+              "label": "417505",
+              "resultClass": "income",
+              "leaf": true,
+              "debit": "20745580.00",
+              "credit": "0.00",
+              "amount": "-20745580.00",
+              "movementCount": 1,
+              "provenance": {
+                "filter": {
+                  "account": "417505",
+                  "dateFrom": "2026-10-01",
+                  "dateTo": "2026-10-31",
+                  "excluded": [
+                    "voided"
+                  ]
+                }
+              },
+              "movements": {
+                "shownCount": 1,
+                "totalCount": 1,
+                "truncatedByBudget": false,
+                "remainder": {
+                  "count": 0,
+                  "debit": "0.00",
+                  "credit": "0.00"
+                },
+                "rows": [
+                  {
+                    "id": 1002,
+                    "date": "2026-10-12",
+                    "document": {
+                      "type": "N",
+                      "code": "NC",
+                      "number": "0007"
+                    },
+                    "account": "417505",
+                    "accountName": null,
+                    "description": "Devolución",
+                    "third": {
+                      "nit": "900000001",
+                      "name": null
+                    },
+                    "direction": "D",
+                    "amount": "20745580.00"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "cost": {
+      "key": "6",
+      "label": "Costos (cuentas 6*)",
+      "resultClass": "cost",
+      "leaf": false,
+      "debit": "225146000.00",
+      "credit": "0.00",
+      "amount": "225146000.00",
+      "movementCount": 1,
+      "provenance": {
+        "filter": {
+          "accountPrefix": "6",
+          "dateFrom": "2026-10-01",
+          "dateTo": "2026-10-31",
+          "excluded": [
+            "voided"
+          ]
+        }
+      },
+      "children": [
+        {
+          "key": "61",
+          "label": "61",
+          "resultClass": "cost",
+          "leaf": false,
+          "debit": "225146000.00",
+          "credit": "0.00",
+          "amount": "225146000.00",
+          "movementCount": 1,
+          "provenance": {
+            "filter": {
+              "accountPrefix": "61",
+              "dateFrom": "2026-10-01",
+              "dateTo": "2026-10-31",
+              "excluded": [
+                "voided"
+              ]
+            }
+          },
+          "children": [
+            {
+              "key": "613505",
+              "label": "613505",
+              "resultClass": "cost",
+              "leaf": true,
+              "debit": "225146000.00",
+              "credit": "0.00",
+              "amount": "225146000.00",
+              "movementCount": 1,
+              "provenance": {
+                "filter": {
+                  "account": "613505",
+                  "dateFrom": "2026-10-01",
+                  "dateTo": "2026-10-31",
+                  "excluded": [
+                    "voided"
+                  ]
+                }
+              },
+              "movements": {
+                "shownCount": 1,
+                "totalCount": 1,
+                "truncatedByBudget": false,
+                "remainder": {
+                  "count": 0,
+                  "debit": "0.00",
+                  "credit": "0.00"
+                },
+                "rows": [
+                  {
+                    "id": 1003,
+                    "date": "2026-10-20",
+                    "document": {
+                      "type": "F",
+                      "code": "FC",
+                      "number": "0100"
+                    },
+                    "account": "613505",
+                    "accountName": null,
+                    "description": "Costo de venta",
+                    "third": {
+                      "nit": "900000003",
+                      "name": "Tercero de ejemplo"
+                    },
+                    "direction": "D",
+                    "amount": "225146000.00"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "expense": {
+      "key": "5",
+      "label": "Gastos (cuentas 5*)",
+      "resultClass": "expense",
+      "leaf": false,
+      "debit": "12000000.625",
+      "credit": "0.00",
+      "amount": "12000000.625",
+      "movementCount": 2,
+      "provenance": {
+        "filter": {
+          "accountPrefix": "5",
+          "dateFrom": "2026-10-01",
+          "dateTo": "2026-10-31",
+          "excluded": [
+            "voided"
+          ]
+        }
+      },
+      "children": [
+        {
+          "key": "52",
+          "label": "52",
+          "resultClass": "expense",
+          "leaf": false,
+          "debit": "12000000.625",
+          "credit": "0.00",
+          "amount": "12000000.625",
+          "movementCount": 2,
+          "provenance": {
+            "filter": {
+              "accountPrefix": "52",
+              "dateFrom": "2026-10-01",
+              "dateTo": "2026-10-31",
+              "excluded": [
+                "voided"
+              ]
+            }
+          },
+          "children": [
+            {
+              "key": "520505",
+              "label": "520505",
+              "resultClass": "expense",
+              "leaf": true,
+              "debit": "12000000.625",
+              "credit": "0.00",
+              "amount": "12000000.625",
+              "movementCount": 2,
+              "provenance": {
+                "filter": {
+                  "account": "520505",
+                  "dateFrom": "2026-10-01",
+                  "dateTo": "2026-10-31",
+                  "excluded": [
+                    "voided"
+                  ]
+                }
+              },
+              "movements": {
+                "shownCount": 1,
+                "totalCount": 2,
+                "truncatedByBudget": false,
+                "remainder": {
+                  "count": 1,
+                  "debit": "0.125",
+                  "credit": "0.00"
+                },
+                "rows": [
+                  {
+                    "id": 1004,
+                    "date": "2026-10-10",
+                    "document": {
+                      "type": "E",
+                      "code": "CE",
+                      "number": "0041"
+                    },
+                    "account": "520505",
+                    "accountName": null,
+                    "description": "Gasto",
+                    "third": {
+                      "nit": "900000002",
+                      "name": null
+                    },
+                    "direction": "D",
+                    "amount": "12000000.50"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "grossProfit": {
+    "amount": "154108420.00"
+  },
+  "unclassified": [
+    {
+      "key": "730505",
+      "debit": "1000000.00",
+      "credit": "0.00",
+      "movementCount": 1,
+      "provenance": {
+        "filter": {
+          "account": "730505",
+          "dateFrom": "2026-10-01",
+          "dateTo": "2026-10-31",
+          "excluded": [
+            "voided"
+          ]
+        }
+      }
+    }
+  ],
+  "definition": {
+    "version": 1,
+    "text": "Ingresos (cuentas 4*) menos costos (cuentas 6*) dan la utilidad bruta. Los gastos (cuentas 5*) se muestran aparte. Las cuentas que no empiezan por 4, 5 o 6 quedan como no clasificadas.",
+    "table": [
+      {
+        "prefix": "4",
+        "resultClass": "income"
+      },
+      {
+        "prefix": "5",
+        "resultClass": "expense"
+      },
+      {
+        "prefix": "6",
+        "resultClass": "cost"
+      }
+    ],
+    "notes": [
+      "Reportia no tiene catálogo de nombres de cuenta: accountName es siempre null.",
+      "El nombre del tercero puede ser null si el NIT no está registrado en terceros."
+    ]
+  },
+  "dataQuality": {
+    "voided": {
+      "count": 1,
+      "debit": "0.00",
+      "credit": "5000000.00"
+    },
+    "invalidValue": {
+      "count": 1
+    },
+    "invalidDirection": {
+      "count": 1,
+      "amount": "100.00"
+    },
+    "withoutDate": {
+      "count": 1
+    }
+  },
+  "rowBudget": {
+    "limit": 500,
+    "used": 4,
+    "truncated": false
+  }
+}

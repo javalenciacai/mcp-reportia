@@ -15,6 +15,7 @@ import { thirdPartyTools } from './third-parties.js';
 import { salespersonInvoiceTools } from './salesperson-invoice.js';
 import { lineCostCenterTools } from './line-cost-center.js';
 import { operationsTools } from './operations.js';
+import { incomeStatementTools } from './income-statement.js';
 
 export const allTools = [
   ...authHealthTools,
@@ -26,4 +27,5 @@ export const allTools = [
   ...salespersonInvoiceTools,
   ...lineCostCenterTools,
   ...operationsTools,
+  ...incomeStatementTools,
 ];
