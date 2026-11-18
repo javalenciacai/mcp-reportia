@@ -18,9 +18,10 @@
 ## Lo que todavía puede fallar
 
 - El perfil no limita nada por sí solo: solo actúa en quien lo active. El chat de producción **no lo usa** y conserva las 66 herramientas. Por eso siguen vigentes estos riesgos, declarados por el dueño del producto:
+  - **En las 15 herramientas que piden confirmación antes de cambiar o borrar datos, la confirmación la completa el asistente, no una persona en pantalla.**
   - **El chat puede cerrar tu sesión de Reportia sin pedirte confirmación** (herramienta `reportia_logout`).
   - **El chat puede crear o cambiar datos sin pedir confirmación** en 10 casos: crear o actualizar mapeos de cuentas, de vendedores, de grupos de línea y de centros de costo, y reportes de centro de costo.
   - **Hasta que Reportia las enmascare (RPT-59), tres consultas devuelven claves en claro**: la configuración de facturación (claves de correo), la configuración de SIIGO (contraseña) y la lista de clientes de SIIGO.
   - **El chat puede enviar facturas por correo.**
-  - **El chat puede borrar todos los movimientos de una empresa** (herramienta `reportia_movements_delete_all`). Exige una confirmación explícita (reconocer el riesgo y escribir un texto con el número de la empresa), pero esa confirmación la completa el asistente, no una persona en pantalla.
+  - **El chat puede borrar todos los movimientos de una empresa** (herramienta `reportia_movements_delete_all`). Es el caso más grave: exige reconocer el riesgo y escribir un texto con el número de la empresa.
 - Las exportaciones a Excel y PDF guardan archivos en el servidor donde corre el paquete; no escriben en Reportia.

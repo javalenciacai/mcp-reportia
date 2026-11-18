@@ -5,7 +5,7 @@
 ### Perfil de solo lectura y lista canónica (HU-0 · MCPR-8 · CWK-19 E0)
 
 - **Nuevo** `REPORTIA_READ_ONLY` (`true|false|1|0`; ausente = `false`; otro valor impide arrancar con `ConfigError`). Con `true`, `createMcpServer` registra solo las 37 tools de `READ_ONLY_TOOLS`; una tool no registrada la rechaza el SDK (`-32602 Tool … not found`) sin llamar a la API.
-- **Nuevo** `src/read-only-tools.ts`: tres listas explícitas (`READ_ONLY_TOOLS` 37, `SENSITIVE_READ_TOOLS` 3, `MUTATING_TOOLS` 26) que suman las 66 tools. Un test de exhaustividad falla si una tool nueva no se clasifica. No se deriva de `destructive`: no cubre 11 mutantes ni `logout`.
+- **Nuevo** `src/read-only-tools.ts`: tres listas explícitas (`READ_ONLY_TOOLS` 37, `SENSITIVE_READ_TOOLS` 3, `MUTATING_TOOLS` 26) que suman las 66 tools. Un test de exhaustividad falla si una tool nueva no se clasifica. No se deriva de `destructive`: no cubre 11 mutantes: los 10 create/update de mapeos y reportes de centro de costo, y `logout`.
 - **Nuevo** `read-only-tools.json` en la raíz del paquete (incluido en `files`): `{ schemaVersion: 1, profile: "read-only", tools: [...] }`.
 - **Seguridad** `reportia_invoice_settings_get`, `reportia_siigo_settings_get` y `reportia_siigo_clients_list` quedan fuera del perfil: Reportia devuelve en claro claves de correo y la contraseña de SIIGO.
 - **Candado de empresa**: con el perfil activo y `REPORTIA_COMPANY_ID`, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` (`ToolContext.lockCompany`). Sin el perfil, sin cambios.
