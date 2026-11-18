@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## Unreleased (0.4.0)
+
+### Perfil de solo lectura y lista canónica
+
+- **Nuevo** `REPORTIA_READ_ONLY` (ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar con `ConfigError`). Con `true`, `createMcpServer` registra solo las 37 tools de `READ_ONLY_TOOLS`; una tool no registrada la rechaza el SDK (`-32602 Tool … not found`) sin llamar a la API.
+- **Nuevo** `src/read-only-tools.ts`: tres listas explícitas (`READ_ONLY_TOOLS` 37, `SENSITIVE_READ_TOOLS` 3, `MUTATING_TOOLS` 26) que suman las 66 tools. Un test de exhaustividad falla si una tool nueva no se clasifica. No se deriva de `destructive`: no cubre 11 mutantes: los 10 create/update de mapeos y reportes de centro de costo, y `logout`.
+- **Nuevo** `read-only-tools.json` en la raíz del paquete (incluido en `files`): `{ schemaVersion: 1, profile: "read-only", tools: [...] }`.
+- **Seguridad**: el perfil deja fuera tres lecturas de configuración sensibles (clasificadas como `SENSITIVE_READ_TOOLS`).
+- **Candado de empresa**: con el perfil activo y `REPORTIA_COMPANY_ID`, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` (`ToolContext.lockCompany`). Sin el perfil, sin cambios.
+- **CI**: paso `test:smoke:readonly` (37 tools con el flag; valor inválido no arranca). `server.json` alineado con el paquete (versión, descripción, variable nueva).
+- **Compatibilidad**: sin la variable, 66 tools e idéntico comportamiento a 0.3.7 (semver minor). El chat de producción no activa el perfil y no cambia.
+
 ## v0.3.7 - 2026-09-12
 
 ### Fix `client.call()` dropping query params before HTTP request (REQ-MCP-OUTPUT-04 chain round 5)

@@ -7,12 +7,15 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { createClient } from './client.js';
 import { allTools } from './tools/index.js';
+import { toolsForProfile } from './read-only-tools.js';
 import { extractRawShape, toToolCallResult } from './tool-base.js';
 
 export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) {
   const server = new McpServer({ name: 'mcp-reportia', version: '0.1.0' });
-  const ctx = { client, defaultCompanyId: cfg.companyId };
-  for (const tool of allTools) {
+  // Con `readOnly` se fija la empresa: un companyId de input distinto del default
+  // falla con COMPANY_MISMATCH (ver resolveCompanyId).
+  const ctx = { client, defaultCompanyId: cfg.companyId, lockCompany: cfg.readOnly };
+  for (const tool of toolsForProfile(allTools, cfg)) {
     server.registerTool(
       tool.name,
       {

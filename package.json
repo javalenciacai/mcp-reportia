@@ -12,6 +12,7 @@
     "README.md",
     "LICENSE",
     ".env.example",
+    "read-only-tools.json",
     "server.json"
   ],
   "scripts": {
@@ -21,6 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:smoke": "node scripts/jsonrpc-smoke.mjs",
+    "test:smoke:readonly": "node scripts/read-only-smoke.mjs",
     "test:integration": "node scripts/integration-smoke.mjs dist/server.js",
     "start": "node dist/server.js",
     "inspect": "npx @modelcontextprotocol/inspector node dist/server.js",

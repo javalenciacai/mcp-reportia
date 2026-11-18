@@ -22,6 +22,13 @@ const ConfigSchema = z.object({
   downloadDir: z.string().min(1),
   userAgent: z.string().min(1).default('mcp-reportia/0.1.0'),
   maxDownloadBytes: z.number().int().positive().default(100 * 1024 * 1024),
+  /**
+   * Perfil de solo lectura: con `REPORTIA_READ_ONLY=true` el
+   * servidor registra solo las tools de `read-only-tools.json` y fija la
+   * empresa a `REPORTIA_COMPANY_ID`. Ausente o vacío = `false` (las 66 tools); un
+   * valor distinto de `true|false|1|0` impide arrancar.
+   */
+  readOnly: z.boolean().default(false),
 }).refine((v) => Boolean(v.token) || Boolean(v.email && v.password) || Boolean(v.cookie), { message: 'Configura REPORTIA_TOKEN, REPORTIA_EMAIL + REPORTIA_PASSWORD, o REPORTIA_COOKIE.' }).refine((v) => !(v.token && v.cookie), { message: 'REPORTIA_TOKEN y REPORTIA_COOKIE son mutuamente excluyentes — usa solo uno.' });
 
 export type AppConfig = z.infer<typeof ConfigSchema> & { authMode: 'bearer' | 'session' | 'cookie' };
@@ -31,6 +38,21 @@ function parseIntStrict(value: string | undefined, fallback: number): number {
   if (value === undefined || value === '') return fallback;
   const n = parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Parseo estricto de un booleano de entorno: solo `true|false|1|0` (sin
+ * importar mayúsculas). Cualquier otro valor es un error de configuración para
+ * que un typo no deje abierto el modo que debía estar cerrado. Un valor vacío ya
+ * llegó aquí como `undefined` (`val()` lo descarta), por lo que cuenta como
+ * ausente: `false`.
+ */
+function parseBoolStrict(key: string, value: string | undefined): boolean {
+  if (value === undefined) return false;
+  const v = value.toLowerCase();
+  if (v === 'true' || v === '1') return true;
+  if (v === 'false' || v === '0') return false;
+  throw new ConfigError(`${key} inválido: usa true, false, 1 o 0 (valor recibido no reconocido).`);
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -55,6 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(os.tmpdir(), 'mcp-reportia')),
     userAgent: val(env, 'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0',
     maxDownloadBytes: parseIntStrict(val(env, 'REPORTIA_MAX_DOWNLOAD_BYTES'), 100 * 1024 * 1024),
+    readOnly: parseBoolStrict('REPORTIA_READ_ONLY', val(env, 'REPORTIA_READ_ONLY')),
   };
   const parsed = ConfigSchema.safeParse(raw);
   if (!parsed.success) throw new ConfigError(parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n'));

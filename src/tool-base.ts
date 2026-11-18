@@ -35,6 +35,12 @@ export interface ToolContext {
   client: ReportiaClient;
   /** ID de empresa por defecto configurado vía REPORTIA_COMPANY_ID. */
   defaultCompanyId: number | undefined;
+  /**
+   * Perfil de solo lectura: si es `true` y hay `defaultCompanyId`, un
+   * `companyId` de input distinto del default se rechaza (COMPANY_MISMATCH).
+   * Ausente o `false`: comportamiento histórico (el input manda).
+   */
+  lockCompany?: boolean;
 }
 
 export type ToolResult =
@@ -204,6 +210,14 @@ export function extractRawShape(schema: z.ZodTypeAny): z.ZodTypeAny | Record<str
 
 /** Resuelve el companyId del input o usa el default. */
 export function resolveCompanyId(input: { companyId?: unknown }, ctx: ToolContext): number {
+  if (ctx.lockCompany && ctx.defaultCompanyId !== undefined && input.companyId !== undefined && input.companyId !== null) {
+    if (Number(input.companyId) !== ctx.defaultCompanyId) {
+      throw new ReportiaError({
+        message: 'companyId distinto de la empresa fijada para esta sesión (perfil de solo lectura).',
+        code: 'COMPANY_MISMATCH',
+      });
+    }
+  }
   const raw = input.companyId ?? ctx.defaultCompanyId;
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) {

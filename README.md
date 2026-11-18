@@ -169,6 +169,7 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | `REPORTIA_EMAIL`        | Condicional\*        | Email para login por sesión (cookie).                                                                                                    |
 | `REPORTIA_PASSWORD`     | Condicional\*        | Contraseña para login por sesión (cookie).                                                                                               |
 | `REPORTIA_COMPANY_ID`   | No                   | `companyId` por defecto cuando la tool lo admita. Acepta entero positivo.                                                                |
+| `REPORTIA_READ_ONLY`    | No (def. `false`)    | Perfil de solo lectura: con `true` (o `1`) el servidor registra solo las 37 tools de consulta de `read-only-tools.json` y, si `REPORTIA_COMPANY_ID` está definida, rechaza un `companyId` de entrada distinto (`COMPANY_MISMATCH`; ver «Candado de empresa»). Ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar. Ver [Perfil de solo lectura](#perfil-de-solo-lectura). |
 | `REPORTIA_TIMEOUT_MS`   | No (def. `30000`)    | Timeout por petición HTTP en ms.                                                                                                         |
 | `REPORTIA_DOWNLOAD_DIR` | No (def. `./downloads`) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados).                                                              |
 | `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/0.1.0`) | Cabecera `User-Agent` en cada request.                                                                                       |
@@ -415,6 +416,17 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 
 ---
 
+## Perfil de solo lectura
+
+Perfil opcional para consumidores que solo deben consultar. **Está apagado por defecto y no se activa en el chat de producción** (que conserva las 66 tools). Se activa con `REPORTIA_READ_ONLY=true`; con la variable ausente o vacía el servidor expone las 66 tools, igual que antes. Cualquier valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar.
+
+- **Qué expone:** exactamente las **37** tools de consulta listadas en `read-only-tools.json` (raíz del paquete, ruta instalada `<node_modules>/@james.valencia/mcp-reportia/read-only-tools.json`; forma `{ "schemaVersion": 1, "profile": "read-only", "tools": [...] }`, nombres ordenados). Incluye `reportia_third_parties_portfolio_balance` (usa `POST` solo como transporte; es consulta pura) y las 5 exportaciones, que escriben archivos locales en `REPORTIA_DOWNLOAD_DIR`, nunca en Reportia.
+- **Qué deja fuera (29):** las **26** tools mutantes (o con efecto operativo, incluidas `reportia_logout`, `reportia_cost_center_report_execute` y los envíos de correo de facturas) y **3 lecturas de configuración sensibles** (`SENSITIVE_READ_TOOLS` en `src/read-only-tools.ts`). 37 + 3 + 26 = 66.
+- **Cómo falla una tool fuera del perfil:** no está registrada; el SDK responde `-32602 «Tool … not found»` y el servidor no hace ninguna llamada HTTP. Los consumidores deben tratarlo como «tool no disponible» sin depender del código exacto.
+- **Candado de empresa:** con el perfil activo y `REPORTIA_COMPANY_ID` definido, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` sin llamar a la API. Sin el perfil, el `companyId` de entrada sigue teniendo prioridad sobre el default.
+- **Para quien lo activa:** puede fijar además una lista de tools permitidas (`allowedTools`) como subconjunto de `read-only-tools.json` y verificar al arrancar que `tools/list` ⊆ esa lista; son dos controles independientes y ninguno es obligatorio. Una tool nueva del paquete debe clasificarse en `src/read-only-tools.ts`: un test falla si falta.
+
+---
 ## Limitaciones conocidas
 
 - **Sin HTTP streaming / SSE:** este servidor solo habla `stdio`. Clientes que solo soporten HTTP no pueden consumirlo directamente.
