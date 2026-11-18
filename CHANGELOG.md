@@ -10,7 +10,7 @@
 - **Seguridad** `reportia_invoice_settings_get`, `reportia_siigo_settings_get` y `reportia_siigo_clients_list` quedan fuera del perfil: Reportia devuelve en claro claves de correo y la contraseña de SIIGO.
 - **Candado de empresa**: con el perfil activo y `REPORTIA_COMPANY_ID`, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` (`ToolContext.lockCompany`). Sin el perfil, sin cambios.
 - **CI**: paso `test:smoke:readonly` (37 tools con el flag; valor inválido no arranca). `server.json` alineado con el paquete (versión, descripción, variable nueva).
-- **Compatibilidad**: sin la variable, 66 tools e idéntico comportamiento a 0.3.7 (semver minor).
+- **Compatibilidad**: sin la variable, 66 tools e idéntico comportamiento a 0.3.7 (semver minor). El chat de producción no activa el perfil y no cambia.
 
 ## v0.3.7 - 2026-09-12
 
