@@ -6,7 +6,7 @@
 
 - **Hay un perfil opcional de solo lectura, apagado por defecto.** Quien integre el paquete puede activarlo (`REPORTIA_READ_ONLY=true`) para que el servidor ofrezca solo las herramientas de consulta: ver movimientos, terceros, cartera, reportes y exportar a Excel o PDF.
 - **Ese perfil deja fuera tres consultas que devuelven claves en claro** (correo de facturación y contraseña de SIIGO). Quien lo active no las tiene disponibles.
-- **Con el perfil activo y la empresa fijada en `REPORTIA_COMPANY_ID`**, el servidor trabaja solo con esa empresa: si se pide otra, la consulta se rechaza.
+- **Con el perfil activo y la empresa fijada en `REPORTIA_COMPANY_ID`**, **no se puede pedir datos de otra empresa** (la consulta se rechaza). La lista de empresas disponibles sigue mostrando todas las que el usuario puede ver.
 - El paquete publica la lista oficial de herramientas de consulta (`read-only-tools.json`) para que quien lo integre la use como lista permitida.
 
 ## Lo que NO cambia
@@ -22,4 +22,5 @@
   - **El chat puede crear o cambiar datos sin pedir confirmación** en 10 casos: crear o actualizar mapeos de cuentas, de vendedores, de grupos de línea y de centros de costo, y reportes de centro de costo.
   - **Hasta que Reportia las enmascare (RPT-59), tres consultas devuelven claves en claro**: la configuración de facturación (claves de correo), la configuración de SIIGO (contraseña) y la lista de clientes de SIIGO.
   - **El chat puede enviar facturas por correo.**
+  - **El chat puede borrar todos los movimientos de una empresa** (herramienta `reportia_movements_delete_all`). Exige una confirmación explícita (reconocer el riesgo y escribir un texto con el número de la empresa), pero esa confirmación la completa el asistente, no una persona en pantalla.
 - Las exportaciones a Excel y PDF guardan archivos en el servidor donde corre el paquete; no escriben en Reportia.
