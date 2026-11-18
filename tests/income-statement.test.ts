@@ -795,3 +795,89 @@ describe('(d)/(l) clasificación: la tool es de solo lectura y entra en el perfi
     expect(d).toMatch(/solo lectura/i);
   });
 });
+
+describe('B-2: `query` y `warnings` son nombres reservados de la tool (contrato §7, sin pisar a Reportia)', () => {
+  it.each([
+    ['query', { query: { companyId: 99 } }],
+    ['warnings', { warnings: [{ code: 'DEP', message: 'aviso de Reportia' }] }],
+    ['query y warnings', { query: { x: 1 }, warnings: [] }],
+  ])('campo propio de Reportia en la raíz (%s) => UPSTREAM_CONTRACT_MISMATCH con el nombre, una llamada y sin datos parciales', async (label, extra) => {
+    const { mcp, calls } = await connect({ companyId: 7 }, () => ({ ...summaryFixture(), ...extra }));
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError).toBe(true);
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    for (const k of Object.keys(extra)) {
+      expect(r.json.message).toContain(`"${k}"`);
+      expect(r.json.details.reservedFields).toContain(k);
+    }
+    expect(calls).toHaveLength(1);
+    expect(r.json.lines).toBeUndefined();
+    expect(label).toBeTruthy();
+  });
+
+  it('también en el desglose de una línea', async () => {
+    const { mcp, calls } = await connect({ companyId: 7 }, () => ({ ...breakdownFixture(), warnings: [{ code: 'X' }] }));
+    const r = await invoke(mcp, { ...PERIOD, account: '520505' });
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    expect(r.json.details.reservedFields).toEqual(['warnings']);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('caso válido sin esos campos: sigue saliendo igual, solo con query y warnings añadidos', async () => {
+    const { mcp } = await connect({ companyId: 7 }, () => summaryFixture());
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError).toBeFalsy();
+    expect(r.json.query).toBeDefined();
+    expect(r.json.warnings).toEqual([]);
+    expect(r.json.grossProfit).toEqual(summaryFixture().grossProfit);
+  });
+});
+
+describe('B-3: toda hoja con movimientos trae `movements` cuando se pidieron movimientos (contrato §5, T3-02)', () => {
+  const leaves = (f: any) => [
+    f.lines.income.children[0].children[0],
+    f.lines.income.children[0].children[1] ?? null,
+    f.lines.cost.children[0].children[0],
+    f.lines.expense.children[0].children[0],
+  ].filter(Boolean);
+
+  it.each([
+    ['ingresos', (f: any) => delete f.lines.income.children[0].children[0].movements],
+    ['costos', (f: any) => delete f.lines.cost.children[0].children[0].movements],
+    ['gastos', (f: any) => delete f.lines.expense.children[0].children[0].movements],
+  ])('hoja de %s sin movements con movementsPerAccount 5 => UPSTREAM_CONTRACT_MISMATCH, una llamada, sin datos parciales', async (_l, mutate) => {
+    const f = summaryFixture();
+    mutate(f);
+    const { mcp, calls } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 5 });
+    expect(r.isError).toBe(true);
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    expect(r.json.details.leaves).toHaveLength(1);
+    expect(calls).toHaveLength(1);
+    expect(r.json.lines).toBeUndefined();
+  });
+
+  it('con movementsPerAccount 0 el bloque puede faltar (erratum E3)', async () => {
+    const f = summaryFixture();
+    for (const l of leaves(f)) delete l.movements;
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 0 });
+    expect(r.isError).toBeFalsy();
+  });
+
+  it('una hoja con movementCount 0 puede no traer bloque (no hay nada que declarar)', async () => {
+    const f = summaryFixture();
+    const l = f.lines.income.children[0].children[0];
+    l.movementCount = 0;
+    delete l.movements;
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 5 });
+    expect(r.isError).toBeFalsy();
+  });
+
+  it('fixture completo con movementsPerAccount 5 sigue aceptándose', async () => {
+    const { mcp } = await connect({ companyId: 7 }, () => summaryFixture());
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 5 });
+    expect(r.isError).toBeFalsy();
+  });
+});

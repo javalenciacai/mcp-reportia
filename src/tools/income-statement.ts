@@ -203,6 +203,21 @@ function assertContract(data: unknown, schema: z.ZodTypeAny, what: string): Reco
   });
 }
 
+/** Claves de las hojas con `movementCount > 0` que no traen el bloque `movements`. */
+function leavesMissingMovements(lines: Record<string, unknown>): string[] {
+  const missing: string[] = [];
+  const visit = (n: any): void => {
+    if (!n || typeof n !== 'object') return;
+    if (n.leaf === true) {
+      if (n.movementCount > 0 && n.movements === undefined) missing.push(String(n.key));
+      return;
+    }
+    if (Array.isArray(n.children)) n.children.forEach(visit);
+  };
+  Object.values(lines).forEach(visit);
+  return missing;
+}
+
 // ----------------------------------------------------------- errores HTTP
 
 /**
@@ -305,6 +320,29 @@ export const incomeStatementTools: ToolDefinition<any>[] = [
           throw mapUpstreamError(e);
         }
         const upstream = assertContract(data, drill ? BreakdownResponse : IncomeStatementResponse, drill ? 'desglose' : 'estado de resultados');
+
+        // `query` y `warnings` son nombres reservados de la tool: si Reportia los manda
+        // en la raíz se rechaza (no se pisan ni se descartan en silencio; contrato §7).
+        const reserved = ['query', 'warnings'].filter((k) => Object.prototype.hasOwnProperty.call(upstream, k));
+        if (reserved.length > 0) {
+          throw new ReportiaError({
+            code: 'UPSTREAM_CONTRACT_MISMATCH',
+            message: `La respuesta de Reportia trae ${reserved.map((k) => `"${k}"`).join(' y ')} en la raíz, nombre${reserved.length > 1 ? 's' : ''} que esta tool reserva para su propia salida.`,
+            details: { reservedFields: reserved },
+          });
+        }
+        // Con movimientos pedidos, toda hoja con movimientos declara su bloque `movements`:
+        // es lo que dice cuántos no se mostraron (contrato §5, T3-02).
+        if (!drill && (input.movementsPerAccount ?? 0) > 0) {
+          const missing = leavesMissingMovements((upstream as { lines: Record<string, unknown> }).lines);
+          if (missing.length > 0) {
+            throw new ReportiaError({
+              code: 'UPSTREAM_CONTRACT_MISMATCH',
+              message: 'La respuesta de Reportia no trae el bloque "movements" en hojas con movimientos aunque se pidieron movimientos.',
+              details: { leaves: missing.slice(0, 10) },
+            });
+          }
+        }
 
         const result = ok({ ...upstream, query: echo, warnings });
         if (result.ok) {
