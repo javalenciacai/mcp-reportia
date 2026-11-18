@@ -55,3 +55,6 @@ jobs:
             echo "FAIL: smoke no reporto 66 tools"
             exit 1
           fi
+
+      - name: Verify read-only profile (37 tools; invalid value does not start)
+        run: npm run test:smoke:readonly
