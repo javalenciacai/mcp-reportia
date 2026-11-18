@@ -262,7 +262,7 @@ describe('HU-0 · perfil de solo lectura', () => {
     expect(resolveCompanyId({ companyId: 9 }, { client: c, defaultCompanyId: 7, lockCompany: false })).toBe(9);
   });
 
-  it('T0-10c: sin el flag, el companyId del input sigue ganando sobre el default', async () => {
+  it('T0-10c / criterio (h): sin el flag y con REPORTIA_COMPANY_ID=7, companyId 9 de entrada va a /api/companies/9/…', async () => {
     const { mcp, calls } = await connect({ companyId: 7 });
     await mcp.callTool({ name: 'reportia_movements_list', arguments: { companyId: 9, dateFrom: '2025-01-01' } });
     expect(calls[0]?.endpoint.startsWith('/api/companies/9/')).toBe(true);
@@ -277,5 +277,145 @@ describe('HU-0 · perfil de solo lectura', () => {
       await mcp.callTool({ name, arguments: { companyId: 7, ...(MIN_ARGS[name] ?? {}) } });
       expect(calls.slice(before).some((c) => c.kind === 'download'), name).toBe(true);
     }
+  });
+});
+
+/** Los 66 nombres de 0.3.7 (`main`@78eda26), en orden de registro. Lista literal congelada. */
+const TOOLS_0_3_7: readonly string[] = [
+  'reportia_health',
+  'reportia_whoami',
+  'reportia_logout',
+  'reportia_companies_list',
+  'reportia_company_get',
+  'reportia_company_settings_get',
+  'reportia_company_settings_update',
+  'reportia_company_activate',
+  'reportia_movements_list',
+  'reportia_movements_export_excel',
+  'reportia_movements_export_pdf',
+  'reportia_movements_delete_all',
+  'reportia_account_mappings_list',
+  'reportia_account_mapping_create',
+  'reportia_account_mapping_update',
+  'reportia_account_mapping_delete',
+  'reportia_account_codes_search',
+  'reportia_commission_list',
+  'reportia_commission_export_excel',
+  'reportia_third_parties_list',
+  'reportia_third_parties_search',
+  'reportia_third_parties_get_by_nit',
+  'reportia_third_parties_portfolio_balance',
+  'reportia_salesperson_mappings_list',
+  'reportia_salesperson_mapping_create',
+  'reportia_salesperson_mapping_update',
+  'reportia_salesperson_mapping_delete',
+  'reportia_salesperson_options_list',
+  'reportia_invoices_list',
+  'reportia_invoice_settings_get',
+  'reportia_invoice_settings_create',
+  'reportia_invoice_settings_update',
+  'reportia_invoice_email_send',
+  'reportia_invoices_send_multiple',
+  'reportia_line_group_mappings_list',
+  'reportia_line_group_mapping_create',
+  'reportia_line_group_mapping_update',
+  'reportia_line_group_mapping_delete',
+  'reportia_line_group_suggestions_lines_groups',
+  'reportia_line_group_suggestions_by_type',
+  'reportia_line_group_description',
+  'reportia_cost_center_mappings_list',
+  'reportia_cost_center_mapping_create',
+  'reportia_cost_center_mapping_update',
+  'reportia_cost_center_mapping_delete',
+  'reportia_cost_center_mappings_suggestions',
+  'reportia_cost_centers_available',
+  'reportia_cost_center_reports_list',
+  'reportia_cost_center_report_get',
+  'reportia_cost_center_report_create',
+  'reportia_cost_center_report_update',
+  'reportia_cost_center_report_delete',
+  'reportia_cost_center_report_execute',
+  'reportia_cost_center_report_duplicate',
+  'reportia_cost_center_report_export_excel',
+  'reportia_cost_center_report_export_pdf',
+  'reportia_uploads_history_list',
+  'reportia_upload_status_get',
+  'reportia_health_queue_system',
+  'reportia_health_workers',
+  'reportia_siigo_settings_get',
+  'reportia_siigo_clients_list',
+  'reportia_siigo_sync_runs_list',
+  'reportia_siigo_run_trace_get',
+  'reportia_siigo_schedules_list',
+  'reportia_siigo_history_get',
+];
+
+describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defecto (reencuadre 2026-11-18)', () => {
+  it('(g) sin flag, `false` o `0`, tools/list es exactamente la lista literal de 0.3.7 (66, mismo orden)', async () => {
+    expect(TOOLS_0_3_7).toHaveLength(66);
+    expect(new Set(TOOLS_0_3_7).size).toBe(66);
+    for (const overrides of [{}, { readOnly: false }]) {
+      const { mcp } = await connect(overrides);
+      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(TOOLS_0_3_7);
+    }
+    const base = { REPORTIA_BASE_URL: 'http://localhost:5000', REPORTIA_TOKEN: 't' };
+    for (const v of [undefined, 'false', '0']) {
+      const env = (v === undefined ? base : { ...base, REPORTIA_READ_ONLY: v }) as NodeJS.ProcessEnv;
+      const server = createMcpServer(loadConfig(env), fakeClient().client);
+      const mcp = new Client({ name: 'test', version: '0.0.0' });
+      const [a, b] = InMemoryTransport.createLinkedPair();
+      await Promise.all([server.connect(a), mcp.connect(b)]);
+      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(TOOLS_0_3_7);
+    }
+  });
+
+  it('(i) la configuración mínima, sin REPORTIA_READ_ONLY, da readOnly === false', () => {
+    const cfg = loadConfig({ REPORTIA_BASE_URL: 'http://localhost:5000', REPORTIA_TOKEN: 't' } as NodeJS.ProcessEnv);
+    expect(cfg.readOnly).toBe(false);
+    expect(buildTestConfig({}).readOnly).toBe(false);
+  });
+
+  describe('(j) la documentación no afirma que el perfil proteja o limite el chat', () => {
+    const files = ['README.md', 'CHANGELOG.md', 'server.json'];
+    const notesDir = path.join(ROOT, 'release-notes');
+    const notes = fs.existsSync(notesDir)
+      ? fs.readdirSync(notesDir).filter((f) => f.endsWith('.md')).map((f) => path.join('release-notes', f))
+      : [];
+    const docs = [...files, ...notes].map((f) => ({ f, text: fs.readFileSync(path.join(ROOT, f), 'utf8') }));
+
+    // Frases que afirmarían que el perfil protege/limita al chat o que obligan a activarlo.
+    const FORBIDDEN: [RegExp, string][] = [
+      [/ya no puede (escribir|borrar|leer|modificar|crear|enviar)/i, '«ya no puede …»'],
+      [/no puede (escribir ni borrar|crear, cambiar ni borrar)/i, '«no puede escribir ni borrar»'],
+      [/el perfil (protege|limita|bloquea|impide)/i, '«el perfil protege/limita/bloquea/impide»'],
+      [/(protege|limita|restringe) (al|el) (chat|asistente)/i, '«protege/limita al chat»'],
+      [/fije\s+\*{0,2}a la vez\*{0,2}/i, '«fije a la vez … allowedTools»'],
+      [/allowedTools[^.\n]*(obligatori|debe)/i, '«allowedTools obligatorio»'],
+      [/(debe|deben) (fijar|activar) (el perfil|`?REPORTIA_READ_ONLY)/i, '«debe activar el perfil»'],
+    ];
+
+    it.each(docs.map((d) => [d.f, d.text] as const))('%s', (_f, text) => {
+      for (const [re, label] of FORBIDDEN) {
+        expect(re.test(text), `afirma ${label}`).toBe(false);
+      }
+    });
+
+    it('la nota de release dice que para el chat de producción «no cambia» y lista los riesgos vigentes', () => {
+      const note = docs.find((d) => d.f.startsWith('release-notes'));
+      expect(note, 'falta la nota de release').toBeDefined();
+      const t = note!.text;
+      expect(t).toMatch(/chat de producci[oó]n no cambia/i);
+      expect(t).toMatch(/Lo que NO cambia/);
+      expect(t).toMatch(/Lo que todav[ií]a puede fallar/);
+      for (const risk of [/reportia_logout/, /sin pedir confirmaci[oó]n/i, /RPT-59/, /facturas por correo/i]) {
+        expect(t).toMatch(risk);
+      }
+    });
+
+    it('el README declara el perfil apagado por defecto y fuera del chat de producción', () => {
+      const readme = docs.find((d) => d.f === 'README.md')!.text;
+      expect(readme).toMatch(/apagado por defecto/i);
+      expect(readme).toMatch(/no se activa en el chat de producci[oó]n/i);
+    });
   });
 });
