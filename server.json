@@ -71,7 +71,7 @@
           "name": "REPORTIA_MAX_DOWNLOAD_BYTES"
         },
         {
-          "description": "Read-only profile. true/1 registers only the 37 query tools listed in read-only-tools.json and, when REPORTIA_COMPANY_ID is set, pins the company to it; false/0 or unset exposes all 66 tools. Any other value prevents startup.",
+          "description": "Optional read-only profile (37 tools). Empty or unset = off; invalid values stop startup.",
           "isRequired": false,
           "name": "REPORTIA_READ_ONLY"
         }

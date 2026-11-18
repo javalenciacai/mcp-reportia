@@ -18,10 +18,11 @@
 ## Lo que todavía puede fallar
 
 - El perfil no limita nada por sí solo: solo actúa en quien lo active. El chat de producción **no lo usa** y conserva las 66 herramientas. Por eso siguen vigentes estos riesgos, declarados por el dueño del producto:
-  - **En las 15 herramientas que piden confirmación antes de cambiar o borrar datos, la confirmación la completa el asistente, no una persona en pantalla.**
-  - **El chat puede cerrar tu sesión de Reportia sin pedirte confirmación** (herramienta `reportia_logout`).
+  - **En las 15 herramientas que piden confirmación antes de cambiar, borrar o sincronizar datos, la confirmación la completa el asistente, no una persona en pantalla.**
+  - **El chat puede cerrar la sesión de Reportia con la que trabaja, sin pedirte confirmación** (herramienta `reportia_logout`).
   - **El chat puede crear o cambiar datos sin pedir confirmación** en 10 casos: crear o actualizar mapeos de cuentas, de vendedores, de grupos de línea y de centros de costo, y reportes de centro de costo.
   - **El chat puede enviar facturas por correo.**
   - **El chat puede borrar todos los movimientos de una empresa** (herramienta `reportia_movements_delete_all`). Es el caso más grave: exige reconocer el riesgo y escribir un texto con el número de la empresa.
+- **El asistente puede consultar la configuración de tu empresa, que incluye datos sensibles.** Trátalo como a una persona con acceso completo a tu cuenta y no compartas esas conversaciones.
 - Conviene revisar con cuidado lo que se le pide al asistente: puede ejecutar acciones que cambian datos y cerrar la sesión sin una confirmación adicional.
 - Las exportaciones a Excel y PDF guardan archivos en el servidor donde corre el paquete; no escriben en Reportia.

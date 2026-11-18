@@ -25,7 +25,8 @@ const ConfigSchema = z.object({
   /**
    * Perfil de solo lectura: con `REPORTIA_READ_ONLY=true` el
    * servidor registra solo las tools de `read-only-tools.json` y fija la
-   * empresa a `REPORTIA_COMPANY_ID`. Ausente = `false` (las 66 tools).
+   * empresa a `REPORTIA_COMPANY_ID`. Ausente o vacío = `false` (las 66 tools); un
+   * valor distinto de `true|false|1|0` impide arrancar.
    */
   readOnly: z.boolean().default(false),
 }).refine((v) => Boolean(v.token) || Boolean(v.email && v.password) || Boolean(v.cookie), { message: 'Configura REPORTIA_TOKEN, REPORTIA_EMAIL + REPORTIA_PASSWORD, o REPORTIA_COOKIE.' }).refine((v) => !(v.token && v.cookie), { message: 'REPORTIA_TOKEN y REPORTIA_COOKIE son mutuamente excluyentes — usa solo uno.' });
@@ -42,7 +43,9 @@ function parseIntStrict(value: string | undefined, fallback: number): number {
 /**
  * Parseo estricto de un booleano de entorno: solo `true|false|1|0` (sin
  * importar mayúsculas). Cualquier otro valor es un error de configuración para
- * que un typo no deje abierto el modo que debía estar cerrado.
+ * que un typo no deje abierto el modo que debía estar cerrado. Un valor vacío ya
+ * llegó aquí como `undefined` (`val()` lo descarta), por lo que cuenta como
+ * ausente: `false`.
  */
 function parseBoolStrict(key: string, value: string | undefined): boolean {
   if (value === undefined) return false;

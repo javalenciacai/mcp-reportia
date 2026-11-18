@@ -413,6 +413,24 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       for (const risk of [/reportia_logout/, /sin pedir confirmaci[oó]n/i, /facturas por correo/i]) {
         expect(t).toMatch(risk);
       }
+      expect(t).toMatch(/configuraci[oó]n de tu empresa, que incluye datos sensibles/i);
+      expect(t).toMatch(/no compartas esas conversaciones/i);
+      expect(t).toMatch(/antes de cambiar, borrar o sincronizar datos/i);
+    });
+
+    it('README, CHANGELOG y server.json dicen que el valor vacío equivale a apagado', () => {
+      for (const f of ['README.md', 'CHANGELOG.md', 'server.json']) {
+        const text = docs.find((d) => d.f === f)!.text;
+        expect(text, f).toMatch(/vac[ií]o|empty/i);
+      }
+    });
+
+    it('la descripción de REPORTIA_READ_ONLY en server.json cabe en 100 caracteres', () => {
+      const sj = JSON.parse(docs.find((d) => d.f === 'server.json')!.text);
+      const vars = sj.packages.flatMap((p: { environmentVariables?: { name: string; description: string }[] }) => p.environmentVariables ?? []);
+      const v = vars.find((e: { name: string }) => e.name === 'REPORTIA_READ_ONLY');
+      expect(v).toBeDefined();
+      expect(v.description.length).toBeLessThanOrEqual(100);
     });
 
     it('el README declara el perfil apagado por defecto y fuera del chat de producción', () => {
