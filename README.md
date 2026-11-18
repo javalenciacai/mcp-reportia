@@ -424,13 +424,14 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 | `dateFrom`, `dateTo`  | Sí          | Periodo, `YYYY-MM-DD`, ambos inclusivos. Fechas inexistentes, periodos invertidos o con otro formato se rechazan antes de llamar a Reportia (`INVALID_INPUT` / `INVALID_DATE_RANGE`). |
 | `movementsPerAccount` | No (def. 5) | Movimientos de muestra por cuenta, de 0 a 50. Se envía siempre de forma explícita. |
 | `account`             | No          | Código o prefijo de una línea del reporte (solo dígitos, 1 a 10). Con él, la tool devuelve el **desglose paginado** de esa línea. |
-| `limit`, `offset`     | No          | Solo con `account`: página de movimientos (`limit` 1–1000, por defecto 100; `offset` desde 0). Sin `account` se ignoran y la tool lo avisa en `warnings`. |
+| `limit`, `offset`     | No          | Solo con `account`: página de movimientos (`limit` 1–1000, por defecto 100; `offset` desde 0). Sin `account` se ignoran y la tool lo avisa en `warnings` (`PARAM_IGNORED`). |
 | `companyId`           | No          | Empresa. Si falta se usa `REPORTIA_COMPANY_ID`; si no hay ninguno, `MISSING_COMPANY_ID` sin llamar a Reportia. Con `REPORTIA_READ_ONLY=true` y `REPORTIA_COMPANY_ID` definida, un `companyId` distinto falla con `COMPANY_MISMATCH`. Nunca viaja en la consulta, solo en la ruta. |
 
 **Qué devuelve.** La respuesta de Reportia **tal cual**, más dos campos de la tool: `query` (eco de lo que se pidió, con la empresa resuelta) y `warnings`. La tool no recalcula, no redondea ni reescribe ninguna cifra: los importes son cadenas decimales exactas (por ejemplo `"12000000.625"`) y deben tratarse como texto.
 
 - **Procedencia.** Cada línea (clase 4 ingresos, 5 gastos, 6 costos, luego grupo y cuenta) trae `provenance.filter` (el filtro que reproduce la cifra) y `movementCount`. Las cuentas traen hasta `movementsPerAccount` movimientos de muestra en `movements.rows`.
 - **Lo que no cabe se declara, no se oculta.** Cuando Reportia recorta filas, `movements.remainder` (`count`, `debit`, `credit`) dice cuánto quedó fuera, y `rowBudget.truncated` indica si se alcanzó el tope por respuesta (500 filas). Para pedir el resto de una línea, repite la llamada con `account`, `limit` y `offset`. La tool nunca recorta filas por su cuenta.
+- **Respuesta con datos incompletos.** Si Reportia devuelve terceros o documentos de un movimiento incompletos (sin `nit`, o sin tipo o código de documento), la validación responde `UPSTREAM_CONTRACT_MISMATCH` en vez de mostrar cifras, aunque los totales sean correctos.
 - **Utilidad bruta, no neta.** `grossProfit.amount` es ingresos menos costos. No hay utilidad operacional ni neta.
 - **Cuentas fuera de las clases 4, 5 y 6** aparecen en `unclassified` y no entran en ningún total. Lo excluido o inválido (anulados, importes o sentidos inválidos, movimientos sin fecha) está en `dataQuality`, fuera de los totales.
 - **Sin nombres de cuenta.** `accountName` viene siempre `null`; el nombre del tercero puede ser `null`. `definition.notes` lo declara.
@@ -449,7 +450,7 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 | `UNEXPECTED` | Error interno de Reportia. |
 | `NETWORK_ERROR` / `TIMEOUT` | No se pudo llegar a Reportia / tardó demasiado. |
 | `UPSTREAM_CONTRACT_MISMATCH` | La respuesta de Reportia no tiene la forma esperada o usa una `schemaVersion` que esta versión no conoce. Un campo adicional que la tool no conoce **no** es un error: se propaga. |
-| `OUTPUT_TOO_LARGE` | La salida supera 2 MiB (`MAX_OUTPUT_BYTES`). Es una red de seguridad: no se devuelven datos parciales; baja `movementsPerAccount` o pide el desglose de una línea con `account`. |
+| `OUTPUT_TOO_LARGE` | La salida supera 2 MiB (`MAX_OUTPUT_BYTES`), medidos sobre el texto de la respuesta; en la conexión puede ocupar cerca del 60 % más (≈1,6 veces), porque el protocolo la envía en texto y de forma estructurada. Es una red de seguridad: no se devuelven datos parciales; baja `movementsPerAccount` o pide el desglose de una línea con `account`. |
 
 ---
 

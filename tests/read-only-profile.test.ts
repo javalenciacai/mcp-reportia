@@ -424,6 +424,10 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       expect(t).toMatch(/configuraci[oó]n de tu empresa, que incluye datos sensibles/i);
       expect(t).toMatch(/no compartas esas conversaciones/i);
       expect(t).toMatch(/antes de cambiar, borrar o sincronizar datos/i);
+      expect(t).toMatch(/datos incompletos en los terceros o en los documentos de un movimiento/i);
+      expect(t).toMatch(/error de contrato en vez de mostrar cifras/i);
+      expect(t).toMatch(/2 MiB se mide sobre el texto/i);
+      expect(t).toMatch(/cerca del 60 % m[aá]s/i);
     });
 
     it('README, CHANGELOG y server.json dicen que el valor vacío equivale a apagado', () => {

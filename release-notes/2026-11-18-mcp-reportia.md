@@ -30,6 +30,8 @@
 - **Las cuentas no traen nombre** (solo el código), y el nombre del tercero puede faltar si su NIT no está registrado.
 - **Las cuentas cuyo código no empieza por 4, 5 o 6** (por ejemplo, la clase 7) aparecen como «no clasificadas» y no suman a ningún total.
 - **Cada respuesta trae como máximo 500 movimientos de muestra.** El resto se pide cuenta por cuenta con el desglose. Una respuesta de más de 2 MiB se rechaza (`OUTPUT_TOO_LARGE`): baja el número de movimientos por cuenta o pide el desglose de una línea.
+- **El tope de 2 MiB se mide sobre el texto de la respuesta; en la conexión puede ocupar cerca del 60 % más** (≈1,6 veces), porque el protocolo la envía dos veces, en texto y de forma estructurada. Si integras el paquete, dimensiona tu límite de transmisión con ese margen.
+- **Si Reportia devuelve datos incompletos en los terceros o en los documentos de un movimiento** (por ejemplo, sin número de identificación o sin tipo o código de documento), la herramienta responde con un error de contrato en vez de mostrar cifras, aunque los totales sean correctos.
 - **Si la sesión de Reportia vence**, la herramienta responde con error de autenticación y no la renueva. Si Reportia limita las peticiones (100 por minuto), responde `RATE_LIMITED` y no reintenta.
 - **Si Reportia cambia la forma de su respuesta de manera incompatible**, la herramienta responde `UPSTREAM_CONTRACT_MISMATCH` en lugar de entregar datos que podrían interpretarse mal.
 - El perfil no limita nada por sí solo: solo actúa en quien lo active. El chat de producción **no lo usa** y conserva todas las herramientas. Por eso siguen vigentes estos riesgos, declarados por el dueño del producto:
