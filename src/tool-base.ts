@@ -24,6 +24,14 @@ export interface ToolDefinition<TSchema extends z.ZodTypeAny = z.AnyZodObject> {
   name: string;
   description: string;
   inputSchema: TSchema;
+  /**
+   * Opcional. Esquema que se registra en el SDK en lugar de la forma cruda de
+   * `inputSchema`. El SDK descarta en silencio las claves no declaradas antes de
+   * llamar al handler; una herramienta con entrada `.strict()` registra aquí su
+   * versión `.passthrough()` para que las claves desconocidas lleguen al
+   * `safeParse` estricto de `server.ts` y se rechacen con `INVALID_INPUT`.
+   */
+  registerSchema?: z.ZodTypeAny;
   /** Si true, la herramienta se considera destructiva y exige `confirm: true`. */
   destructive?: boolean;
   handler: (args: z.infer<TSchema>, ctx: ToolContext) => Promise<ToolResult>;

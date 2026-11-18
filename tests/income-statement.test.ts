@@ -403,6 +403,26 @@ describe('(g)–(j) empresa: input ?? REPORTIA_COMPANY_ID; candado solo con el p
     expect(tool.inputSchema.safeParse({ ...PERIOD, startDate: '2026-10-01' }).success).toBe(false);
   });
 
+  it('T3-04e: una clave desconocida con argumentos válidos => INVALID_INPUT y 0 llamadas HTTP', async () => {
+    const { mcp, calls } = await connect({ companyId: 7 });
+    for (const extra of [{ startDate: '2026-10-01' }, { foo: 1 }, { accountPrefix: '4' }]) {
+      const r = await invoke(mcp, { ...PERIOD, ...extra });
+      expect(r.isError, r.text).toBe(true);
+      expect(r.json.code).toBe('INVALID_INPUT');
+    }
+    expect(calls).toHaveLength(0);
+    // `signal`, `sessionId` y `_meta` siguen aceptándose (T3-04c).
+    const ok = await invoke(mcp, { ...PERIOD, signal: {}, sessionId: 's', _meta: {} });
+    expect(ok.isError, ok.text).toBe(false);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('T3-04f: el cambio no alcanza a las otras herramientas (siguen descartando claves desconocidas)', () => {
+    const others = allTools.filter((t) => t.name !== TOOL);
+    expect(others.length).toBeGreaterThan(60);
+    expect(others.every((t) => t.registerSchema === undefined)).toBe(true);
+  });
+
   it('T3-04d: `startDate`/`endDate` (convención antigua) no sustituyen a dateFrom/dateTo', async () => {
     const { mcp, calls } = await connect({ companyId: 7 });
     const r = await invoke(mcp, { startDate: '2026-10-01', endDate: '2026-10-31' });
@@ -546,6 +566,19 @@ describe('(a) validación no estricta del upstream => UPSTREAM_CONTRACT_MISMATCH
     ['fila con direction inválida', mutateSummary((f) => (f.lines.income.children[0].children[0].movements.rows[0].direction = 'X'))],
     ['fila con amount numérico', mutateSummary((f) => (f.lines.income.children[0].children[0].movements.rows[0].amount = 400000000))],
     ['fila sin third', mutateSummary((f) => delete f.lines.income.children[0].children[0].movements.rows[0].third)],
+    ['raíz de ingresos sin accountPrefix en provenance.filter', mutateSummary((f) => delete f.lines.income.provenance.filter.accountPrefix)],
+    ['raíz de ingresos con provenance.filter vacío', mutateSummary((f) => (f.lines.income.provenance.filter = {}))],
+    ['agregado con selector account en vez de accountPrefix', mutateSummary((f) => {
+      const flt = f.lines.income.children[0].provenance.filter;
+      flt.account = flt.accountPrefix;
+      delete flt.accountPrefix;
+    })],
+    ['hoja sin account en provenance.filter', mutateSummary((f) => delete f.lines.income.children[0].children[0].provenance.filter.account)],
+    ['provenance.filter sin dateFrom', mutateSummary((f) => delete f.lines.cost.provenance.filter.dateFrom)],
+    ['provenance.filter sin excluded', mutateSummary((f) => delete f.lines.cost.provenance.filter.excluded)],
+    ['agregado con movimientos y sin children (raíz)', mutateSummary((f) => delete f.lines.income.children)],
+    ['agregado con movimientos y sin children (grupo)', mutateSummary((f) => delete f.lines.income.children[0].children)],
+    ['unclassified sin selector account', mutateSummary((f) => delete f.unclassified[0].provenance.filter.account)],
     ['respuesta vacía', () => null],
     ['respuesta que no es objeto', () => 'ok'],
   ])('T3-13: %s', async (_label, respond) => {
@@ -571,6 +604,18 @@ describe('(a) validación no estricta del upstream => UPSTREAM_CONTRACT_MISMATCH
     const { mcp } = await connect({ companyId: 7 }, () => f);
     const r = await invoke(mcp, { ...PERIOD, account: '520505' });
     expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+  });
+
+  it('T3-13d: un agregado con children vacío y una cuenta SIN código (account: null) en unclassified siguen siendo válidos', async () => {
+    const f = summaryFixture();
+    f.lines.cost.children = [];
+    f.unclassified.push({
+      key: 'SIN_CODIGO', debit: '0.00', credit: '0.00', movementCount: 0,
+      provenance: { filter: { account: null, ...PERIOD, excluded: ['voided'] } },
+    });
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError, r.text).toBe(false);
   });
 
   it('T3-13c: un campo ADICIONAL no previsto no falla y se propaga (nivel superior, nodo, fila, bloque de datos)', async () => {

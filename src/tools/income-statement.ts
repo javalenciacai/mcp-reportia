@@ -108,22 +108,41 @@ const MovementsBlock = z.object({
   rows: z.array(MovementRow),
 });
 
-const Provenance = z.object({ filter: z.record(z.unknown()) });
+/**
+ * Descriptor reproducible de la fórmula (contrato §3.3): fechas, exclusión y UN
+ * selector. El selector exigido depende del nodo: prefijo si agrega hijos,
+ * cuenta si es una hoja. Se toleran campos adicionales.
+ */
+const FilterBase = { dateFrom: IsoDay, dateTo: IsoDay, excluded: z.array(z.string()) };
+const PrefixProvenance = z.object({ filter: z.object({ accountPrefix: z.string().min(1), ...FilterBase }) });
+const AccountProvenance = z.object({ filter: z.object({ account: z.string().min(1), ...FilterBase }) });
+/** `unclassified[]`: la cuenta puede ser `null` cuando no hay código (contrato §3.5). */
+const UnclassifiedProvenance = z.object({ filter: z.object({ account: z.string().nullable(), ...FilterBase }) });
 
+const NodeBase = {
+  key: z.string(),
+  label: z.string(),
+  resultClass: z.enum(['income', 'cost', 'expense']),
+  debit: Money,
+  credit: Money,
+  amount: Money,
+  movementCount: Count,
+  movements: MovementsBlock.optional(),
+};
+
+// Hoja (`leaf: true`): selector `account`. Agregado (`leaf: false`): selector
+// `accountPrefix` y `children` obligatorio (puede ir vacío si el contrato lo
+// emite así; lo que no se admite es omitirlo).
 const LineNode: z.ZodType<unknown> = z.lazy(() =>
-  z.object({
-    key: z.string(),
-    label: z.string(),
-    resultClass: z.enum(['income', 'cost', 'expense']),
-    leaf: z.boolean(),
-    debit: Money,
-    credit: Money,
-    amount: Money,
-    movementCount: Count,
-    provenance: Provenance,
-    children: z.array(LineNode).optional(),
-    movements: MovementsBlock.optional(),
-  }),
+  z.discriminatedUnion('leaf', [
+    z.object({ ...NodeBase, leaf: z.literal(true), provenance: AccountProvenance }),
+    z.object({
+      ...NodeBase,
+      leaf: z.literal(false),
+      provenance: PrefixProvenance,
+      children: z.array(LineNode),
+    }),
+  ]),
 );
 
 const DataQuality = z.object({
@@ -141,7 +160,7 @@ const IncomeStatementResponse = z.object({
   lines: z.object({ income: LineNode, cost: LineNode, expense: LineNode }),
   grossProfit: z.object({ amount: Money }),
   unclassified: z.array(
-    z.object({ key: z.string(), debit: Money, credit: Money, movementCount: Count, provenance: Provenance }),
+    z.object({ key: z.string(), debit: Money, credit: Money, movementCount: Count, provenance: UnclassifiedProvenance }),
   ),
   definition: z.object({
     version: z.number().int(),
@@ -234,6 +253,9 @@ export const incomeStatementTools: ToolDefinition<any>[] = [
     name: 'reportia_income_statement_get',
     description: DESCRIPTION,
     inputSchema: IncomeStatementInput,
+    // El SDK descarta las claves no declaradas antes del handler; con passthrough
+    // llegan al `.strict()` de arriba y se rechazan (INVALID_INPUT, sin llamada HTTP).
+    registerSchema: IncomeStatementInput.passthrough(),
     handler: async (input: IncomeStatementArgs, ctx) => {
       try {
         if (input.dateFrom > input.dateTo) {

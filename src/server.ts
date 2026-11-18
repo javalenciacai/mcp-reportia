@@ -35,7 +35,7 @@ export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) 
         // `normalizeObjectSchema` widens them — but TypeScript needs an
         // explicit `as any` because the SDK types and our Zod v3-only
         // types are structurally distinct.
-        inputSchema: extractRawShape(tool.inputSchema) as any,
+        inputSchema: (tool.registerSchema ?? extractRawShape(tool.inputSchema)) as any,
       },
       (async (args: any) => {
         const parsed = tool.inputSchema.safeParse(args ?? {});
