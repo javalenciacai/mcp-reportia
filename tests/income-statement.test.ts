@@ -618,6 +618,36 @@ describe('(a) validación no estricta del upstream => UPSTREAM_CONTRACT_MISMATCH
     expect(r.isError, r.text).toBe(false);
   });
 
+  it('T3-13e: `unclassified[]` con claves `41A` y `4A` y `account: null` pasa intacta y no genera ninguna petición de desglose por esa clave', async () => {
+    const f = summaryFixture();
+    for (const key of ['41A', '4A']) {
+      f.unclassified.push({
+        key, debit: '0.00', credit: '0.00', movementCount: 0,
+        provenance: { filter: { account: null, ...PERIOD, excluded: ['voided'] } },
+      });
+    }
+    const { mcp, calls } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError, r.text).toBe(false);
+    const { query: _q, warnings: _w, ...upstream } = r.json;
+    expect(upstream).toEqual(f);
+    expect(r.json.unclassified.map((u: any) => u.key)).toEqual(expect.arrayContaining(['41A', '4A']));
+    // Una sola petición (el resumen): ninguna por `41A` ni por `4A`.
+    expect(calls).toHaveLength(1);
+    expect(JSON.stringify(calls)).not.toMatch(/41A|4A/);
+  });
+
+  it('T3-13f: una hoja del árbol `lines` con `provenance.filter.account: null` sigue siendo UPSTREAM_CONTRACT_MISMATCH', async () => {
+    const { mcp, calls } = await connect({ companyId: 7 }, mutateSummary((f) => {
+      f.lines.income.children[0].children[0].provenance.filter.account = null;
+    }) as Responder);
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError).toBe(true);
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    expect(calls).toHaveLength(1);
+    expect(r.json.lines).toBeUndefined();
+  });
+
   it('T3-13c: un campo ADICIONAL no previsto no falla y se propaga (nivel superior, nodo, fila, bloque de datos)', async () => {
     const f = summaryFixture();
     f.nuevoCampoSuperior = { a: 1 };
