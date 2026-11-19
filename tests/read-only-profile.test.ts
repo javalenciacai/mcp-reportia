@@ -404,7 +404,7 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
     });
 
     it('la nota de release dice que para el chat de producción «no cambia» y lista los riesgos vigentes', () => {
-      const note = docs.find((d) => d.f.startsWith('release-notes'));
+      const note = docs.find((d) => /^release-notes[\\/]\d{4}-\d{2}-\d{2}-mcp-reportia\.md$/.test(d.f));
       expect(note, 'falta la nota de release').toBeDefined();
       const t = note!.text;
       expect(t).toMatch(/chat de producci[oó]n no cambia/i);
