@@ -13,6 +13,10 @@
 - **Ese perfil deja fuera tres lecturas de configuración sensibles.** Quien lo active no las tiene disponibles.
 - **Con el perfil activo y la empresa fijada en `REPORTIA_COMPANY_ID`**, **no se puede pedir datos de otra empresa** (la consulta se rechaza). La lista de empresas disponibles sigue mostrando todas las que el usuario puede ver.
 - El paquete publica la lista oficial de herramientas de consulta (`read-only-tools.json`) para que quien lo integre la use como lista permitida.
+- **Se recomienda actualizar a esta versión.** Incluye la actualización de las librerías de las que depende el paquete por avisos de seguridad.
+- **Versiones mínimas declaradas:** esta versión exige como mínimo `undici` `^6.29.1` y fija el SDK de MCP exactamente en `1.32.2`. Quien ya tenía el paquete instalado con una versión anterior de `undici` la actualizará en su próxima instalación.
+- **Este paquete no trae el archivo de versiones fijas de las dependencias (`package-lock.json`):** quien lo instala recibe las versiones que permitan los rangos declarados, salvo las que están fijadas exactamente (como el SDK de MCP).
+- **El registro público de servidores MCP vuelve a mostrar la versión correcta de esta publicación.** Antes de este release se había quedado en una versión vieja.
 
 ## Lo que NO cambia
 
@@ -28,6 +32,7 @@
 
 - **La herramienta nueva necesita una versión de Reportia que ya publique el estado de resultados.** Con una versión anterior de Reportia responde con un error.
 - **Las cifras pueden tener hasta 5 minutos de antigüedad.** Reportia guarda los resultados en memoria: si se cargaron datos hace poco, dos consultas seguidas pueden dar cifras distintas. No las presentes como «en vivo».
+- **Hay un aviso de seguridad pendiente en una librería de validación que usa el paquete (`zod` 3.x).** No se ha podido determinar si afecta a esta herramienta: el aviso describe un caso de consumo de memoria al validar colecciones muy grandes y no existe una versión 3.x corregida. Corregirlo exige un salto de versión mayor de esa librería, que se hará en una versión posterior; si ese salto cambia algo para quien integra el paquete, se avisará en su nota.
 - **Las cuentas no traen nombre** (solo el código), y el nombre del tercero puede faltar si su NIT no está registrado.
 - **Las cuentas cuyo código no empieza por 4, 5 o 6** (por ejemplo, la clase 7) aparecen como «no clasificadas» y no suman a ningún total.
 - **Cada respuesta trae como máximo 500 movimientos de muestra.** El resto se pide cuenta por cuenta con el desglose. Una respuesta de más de 2 MiB se rechaza (`OUTPUT_TOO_LARGE`): baja el número de movimientos por cuenta o pide el desglose de una línea.
