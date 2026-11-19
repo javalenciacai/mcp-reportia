@@ -450,7 +450,7 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 | `UNEXPECTED` | Error interno de Reportia. |
 | `NETWORK_ERROR` / `TIMEOUT` | No se pudo llegar a Reportia / tardó demasiado. |
 | `UPSTREAM_CONTRACT_MISMATCH` | La respuesta de Reportia no tiene la forma esperada o usa una `schemaVersion` que esta versión no conoce. Un campo adicional que la tool no conoce **no** es un error: se propaga. |
-| `OUTPUT_TOO_LARGE` | La salida supera 2 MiB (`MAX_OUTPUT_BYTES`), medidos sobre el texto de la respuesta; en la conexión puede ocupar hasta casi el doble (≈2 veces), porque el protocolo la envía en texto y de forma estructurada. Es una red de seguridad: no se devuelven datos parciales; baja `movementsPerAccount` o pide el desglose de una línea con `account`. |
+| `OUTPUT_TOO_LARGE` | La salida supera 2 MiB (`MAX_OUTPUT_BYTES`), medidos sobre el texto de la respuesta; en la conexión puede ocupar hasta casi el triple (≈3 veces) según el contenido, porque el protocolo la envía dos veces, en texto y de forma estructurada, y escapa algunos caracteres. Es una red de seguridad: no se devuelven datos parciales; baja `movementsPerAccount` o pide el desglose de una línea con `account`. |
 
 ---
 

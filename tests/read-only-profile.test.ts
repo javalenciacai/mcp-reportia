@@ -427,16 +427,16 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       expect(t).toMatch(/datos incompletos en los terceros o en los documentos de un movimiento/i);
       expect(t).toMatch(/error de contrato en vez de mostrar cifras/i);
       expect(t).toMatch(/2 MiB se mide sobre el texto/i);
-      expect(t).toMatch(/hasta casi el doble \(≈2 veces\)/i);
-      expect(t).not.toMatch(/1,6|60 ?%/);
+      expect(t).toMatch(/hasta casi el triple \(≈3 veces\)/i);
+      expect(t).not.toMatch(/el doble|≈ ?2 veces|1,6|60 ?%/i);
     });
 
-    it('README y CHANGELOG declaran el margen de transmisión como hasta ≈2 veces, sin cifras menores', () => {
+    it('README y CHANGELOG declaran el margen de transmisión como hasta casi el triple, sin cifras menores', () => {
       const readme = docs.find((d) => d.f === 'README.md')!.text;
       const changelog = docs.find((d) => d.f === 'CHANGELOG.md')!.text;
-      expect(readme).toMatch(/2 MiB[^|\n]*hasta casi el doble \(≈2 veces\)/i);
-      expect(changelog).toMatch(/hasta ≈2 veces su tamaño en texto/i);
-      for (const text of [readme, changelog]) expect(text).not.toMatch(/≈1,6|cerca del 60 ?%/);
+      expect(readme).toMatch(/2 MiB[^|\n]*hasta casi el triple \(≈3 veces\)/i);
+      expect(changelog).toMatch(/hasta casi el triple \(≈3 veces\) su tamaño en texto/i);
+      for (const text of [readme, changelog]) expect(text).not.toMatch(/el doble|≈ ?2 veces|≈1,6|1,6|cerca del 60 ?%|60 ?%/i);
     });
 
     it('README, CHANGELOG y server.json dicen que el valor vacío equivale a apagado', () => {
