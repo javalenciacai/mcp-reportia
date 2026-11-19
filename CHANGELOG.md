@@ -25,6 +25,10 @@ Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se pub
 - **CI**: paso `test:smoke:readonly` (38 tools con el flag; valor inválido no arranca). `server.json` alineado con el paquete (versión, descripción, variable nueva).
 - **Compatibilidad**: sin la variable, las 66 tools de 0.3.7 se comportan igual y se suma la de estado de resultados (67; semver minor). El chat de producción no activa el perfil y no cambia.
 
+### Dependencias
+
+- Actualización de dependencias de runtime por avisos de seguridad: `@modelcontextprotocol/sdk` 1.30.0 → 1.32.2 (versión exacta), `undici` 6.28.0 → 6.29.1 y sus dependencias transitivas, y la acción de publicación de GitHub fijada por commit. Sin cambios de comportamiento en las tools.
+
 ## v0.3.7 - 2026-09-12
 
 ### Fix `client.call()` dropping query params before HTTP request (REQ-MCP-OUTPUT-04 chain round 5)
