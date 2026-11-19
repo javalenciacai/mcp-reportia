@@ -963,3 +963,121 @@ describe('extensiones (contrato §7): una clave desconocida en cualquier nivel s
     expect(upstream).toEqual(f);
   });
 });
+
+// ---------------------------------------------------------------- T3-14
+
+describe('T3-14: origen de un nodo en colisión de clave = unión de las hojas descendientes (filas + remainder)', () => {
+  const filter = (k: string, kind: 'account' | 'accountPrefix') => ({
+    filter: { [kind]: k, ...PERIOD, excluded: ['voided'] },
+  });
+  const row = (id: number, account: string, direction: 'D' | 'C', amount: string) => ({
+    id,
+    date: '2026-10-05',
+    document: { type: 'F', code: 'FV', number: '0001' },
+    account,
+    accountName: null,
+    description: 'sintético',
+    third: { nit: '900000001', name: null },
+    direction,
+    amount,
+  });
+  const block = (rows: any[], totalCount: number, remainder: { count: number; debit: string; credit: string }) => ({
+    shownCount: rows.length,
+    totalCount,
+    truncatedByBudget: false,
+    remainder,
+    rows,
+  });
+
+  /** Grupo `41` con una cuenta almacenada también `41` (colisión) y otra `413505`. */
+  function collisionFixture(perAccount: number) {
+    const f = summaryFixture();
+    const leaf41 = {
+      key: '41', label: '41', resultClass: 'income', leaf: true,
+      debit: '0.00', credit: '1000.00', amount: '1000.00', movementCount: 1,
+      provenance: filter('41', 'account'),
+      movements: block([row(1, '41', 'C', '1000.00')], 1, { count: 0, debit: '0.00', credit: '0.00' }),
+    };
+    const all413 = [row(2, '413505', 'D', '25.00'), row(3, '413505', 'C', '500.00')];
+    const shown = all413.slice(0, Math.max(1, perAccount));
+    const hidden = all413.slice(shown.length);
+    const sumDir = (d: 'D' | 'C') => sumDecimals(['0.00', ...hidden.filter((x) => x.direction === d).map((x) => x.amount)]);
+    const leaf413 = {
+      key: '413505', label: '413505', resultClass: 'income', leaf: true,
+      debit: '25.00', credit: '500.00', amount: '475.00', movementCount: 2,
+      provenance: filter('413505', 'account'),
+      movements: block(shown, 2, { count: hidden.length, debit: sumDir('D'), credit: sumDir('C') }),
+    };
+    const group41 = {
+      key: '41', label: '41', resultClass: 'income', leaf: false,
+      debit: '25.00', credit: '1500.00', amount: '1475.00', movementCount: 3,
+      provenance: filter('41', 'accountPrefix'),
+      children: [leaf41, leaf413],
+    };
+    f.lines.income = {
+      key: '4', label: 'Ingresos (cuentas 4*)', resultClass: 'income', leaf: false,
+      debit: '25.00', credit: '1500.00', amount: '1475.00', movementCount: 3,
+      provenance: filter('4', 'accountPrefix'),
+      children: [group41],
+    };
+    f.grossProfit.amount = '1475.00';
+    f.lines.cost.debit = f.lines.cost.credit = f.lines.cost.amount = '0.00';
+    return f;
+  }
+
+  /** Unión de las hojas descendientes: filas mostradas + remainder de cada hoja. */
+  function composeOrigin(node: any, opts: { includeRemainder?: boolean } = {}) {
+    const includeRemainder = opts.includeRemainder ?? true;
+    const debit: string[] = ['0.00'];
+    const credit: string[] = ['0.00'];
+    for (const n of walk(node)) {
+      if (!n.leaf) continue;
+      for (const x of n.movements.rows) (x.direction === 'D' ? debit : credit).push(x.amount);
+      if (includeRemainder) {
+        debit.push(n.movements.remainder.debit);
+        credit.push(n.movements.remainder.credit);
+      }
+    }
+    return { debit: sumDecimals(debit), credit: sumDecimals(credit) };
+  }
+
+  it.each([5, 1])('con movementsPerAccount %i la unión de hojas suma el subtotal del grupo, tolerancia 0', async (n) => {
+    const { mcp, calls } = await connect({ companyId: 7 }, () => collisionFixture(n));
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: n });
+    expect(r.isError, r.text).toBe(false);
+    expect(calls).toHaveLength(1);
+
+    const group = r.json.lines.income.children[0];
+    // la colisión está presente y la tool la entrega intacta: hijo hoja con la misma clave que el padre
+    expect(group.leaf).toBe(false);
+    expect(group.children.filter((c: any) => c.key === group.key && c.leaf)).toHaveLength(1);
+
+    const origin = composeOrigin(group);
+    expect(sameDecimal(origin.debit, group.debit), `debe ${origin.debit} vs ${group.debit}`).toBe(true);
+    expect(sameDecimal(origin.credit, group.credit), `haber ${origin.credit} vs ${group.credit}`).toBe(true);
+
+    // la regla es uniforme: también cierra el nodo raíz de ingresos
+    const root = composeOrigin(r.json.lines.income);
+    expect(sameDecimal(root.credit, r.json.lines.income.credit)).toBe(true);
+
+    // con 1 movimiento por cuenta, el recorte existe de verdad y lo cubre el remainder
+    const leaf413 = group.children.find((c: any) => c.key === '413505');
+    expect(leaf413.movements.remainder.count).toBe(n === 1 ? 1 : 0);
+  });
+
+  it('caso negativo: sin el remainder de una hoja recortada la unión NO suma y la prueba lo detecta', async () => {
+    const { mcp } = await connect({ companyId: 7 }, () => collisionFixture(1));
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 1 });
+    expect(r.isError, r.text).toBe(false);
+    const group = r.json.lines.income.children[0];
+
+    const withoutRemainder = composeOrigin(group, { includeRemainder: false });
+    expect(sameDecimal(withoutRemainder.credit, group.credit)).toBe(false);
+    expect(sameDecimal(withoutRemainder.debit, group.debit)).toBe(true); // la fila mostrada es el débito; falta el haber
+
+    // y si el upstream declarara mal un remainder, la unión tampoco suma
+    const broken = structuredClone(group);
+    broken.children[1].movements.remainder.credit = '0.00';
+    expect(sameDecimal(composeOrigin(broken).credit, broken.credit)).toBe(false);
+  });
+});
