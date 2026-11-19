@@ -4,7 +4,7 @@ Fecha: 2026-09-07.
 
 ## Qué vas a notar
 
-- **`reportia_movements_list` acepta un parámetro `limit`** (de 1 a 1000; si no lo indicas, 100) para no pedir de una sola vez todos los movimientos de un rango amplio. Las demás herramientas de listado ya tenían ese parámetro.
+- **`reportia_movements_list` acepta un parámetro `limit`** (de 1 a 1000; si no lo indicas, 100) para no pedir de una sola vez todos los movimientos de un rango amplio. Solo aplica a ese listado: las demás herramientas de listado (por ejemplo, `reportia_companies_list`) no ganaron ese parámetro.
 
 ## Lo que NO cambia
 

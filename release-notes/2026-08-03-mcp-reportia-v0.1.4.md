@@ -4,7 +4,7 @@ Fecha: 2026-08-03.
 
 ## Qué vas a notar
 
-Sin cambios visibles para quien usa el paquete. Esta versión solo mejora la verificación interna que se hace al publicar el paquete.
+Sin cambios visibles para quien usa el paquete.
 
 ## Lo que NO cambia
 

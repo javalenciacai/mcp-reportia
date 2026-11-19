@@ -4,7 +4,7 @@ Fecha: 2026-09-11.
 
 ## Qué vas a notar
 
-- **Se intentó corregir el rechazo de todas las llamadas a `reportia_movements_list` de 0.3.4**, aceptando los datos internos que el protocolo MCP agrega a cada llamada (`signal`, `sessionId`, `_meta`).
+- **Se intentó corregir que `reportia_movements_list` rechazara todas las llamadas en 0.3.4.** La corrección no bastó para que el listado volviera a funcionar (ver más abajo).
 
 ## Lo que NO cambia
 
