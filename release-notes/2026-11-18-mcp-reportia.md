@@ -21,6 +21,7 @@
 - **Para el chat de producción no cambia nada con el perfil de solo lectura**: no lo usa. Lo único nuevo que verá, al actualizar a 0.5.0, es la herramienta de estado de resultados.
 - La herramienta nueva solo consulta: no cambia ni borra datos, y no renueva la sesión por su cuenta.
 - La herramienta no recalcula ni corrige cifras: entrega lo que informa Reportia.
+- Las comprobaciones adicionales sobre el desglose de grupos y la documentación de la herramienta que acompañan a una aclaración pendiente del contrato con Reportia llegarán en una versión posterior (0.5.1).
 - No hay utilidad operacional ni utilidad neta: solo la utilidad bruta (ingresos menos costos).
 
 ## Lo que todavía puede fallar

@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased (0.5.0)
+## v0.5.0 - fecha de publicación pendiente
 
 Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se publica por separado) y la tool de estado de resultados.
 
@@ -14,6 +14,7 @@ Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se pub
 - **Límites declarados (solo documentación):** el tope de 2 MiB se mide sobre el texto; en la conexión la respuesta puede ocupar hasta casi el triple (≈3 veces) su tamaño en texto según el contenido, porque el protocolo la envía dos veces, en texto y de forma estructurada, y escapa algunos caracteres. Y si Reportia devuelve terceros o documentos de un movimiento incompletos (sin `nit`, o sin tipo o código de documento), la validación responde `UPSTREAM_CONTRACT_MISMATCH` aunque los totales sean correctos. Sin cambio de comportamiento.
 - **Perfil de solo lectura y totales:** el catálogo pasa de 66 a **67** tools y el perfil de solo lectura de 37 a **38** (`read-only-tools.json` regenerado). `README.md` documenta la tool y `server.json` ajusta los conteos.
 
+- **Pruebas:** nueva prueba que fija que las entradas de `unclassified[]` con clave alfanumérica (por ejemplo `41A`, `4A`) y selector `account: null` se propagan intactas y no provocan peticiones de desglose, y que una hoja del árbol con `account: null` sigue siendo `UPSTREAM_CONTRACT_MISMATCH`. Sin cambios en el código de la tool.
 
 ### Perfil de solo lectura y lista canónica
 
