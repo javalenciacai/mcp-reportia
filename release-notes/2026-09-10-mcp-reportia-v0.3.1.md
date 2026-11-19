@@ -9,11 +9,11 @@ Fecha: 2026-09-10.
 
 ## Lo que NO cambia
 
-- `reportia_movements_export_excel` y `reportia_movements_export_pdf` **siguen usando `startDate` y `endDate`**.
-- Las demás herramientas, la autenticación y la paginación.
+- `reportia_movements_export_excel` y `reportia_movements_export_pdf` **siguen usando `startDate` y `endDate`**, y lo que envían a Reportia no cambia. Dejan de mostrar los parámetros `emailStatus`, `limit` y `offset`, que nunca tuvieron efecto en ellas.
+- Las demás herramientas, la autenticación y la paginación del listado (`limit` y `offset`).
 
 ## Lo que todavía puede fallar
 
 - **Los parámetros antiguos o desconocidos se pierden sin aviso.** Si envías `startDate`, `endDate` u otro parámetro que `reportia_movements_list` no conoce, no hay error: la consulta se ejecuta sin esos datos y puede devolver muchos más movimientos de los que esperabas. Revisa los resultados si migraste desde 0.3.0.
-- **Los filtros y la paginación no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite, página), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7. En esta versión, aunque uses los nombres nuevos, las fechas de `reportia_movements_list` no llegaban.
+- **Los filtros y la paginación no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite, desplazamiento `offset`), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7. En esta versión, aunque uses los nombres nuevos, las fechas de `reportia_movements_list` no llegaban.
 - Esta versión, como todas las publicadas hasta hoy, ofrece también herramientas que **cambian o borran datos** en Reportia (por ejemplo, borrar todos los movimientos de una empresa) y **no tiene modo de solo lectura**. Quien conecta un asistente al paquete debe tenerlo en cuenta.

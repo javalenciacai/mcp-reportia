@@ -14,6 +14,6 @@ No hay versión anterior con tag con la cual comparar.
 ## Lo que todavía puede fallar
 
 - **Las herramientas cuya respuesta es una lista fallaban.** Por ejemplo, `reportia_companies_list` devolvía un error de protocolo (`-32602`) en lugar de la lista de empresas. Se corrigió en la versión 0.1.6.
-- **Los filtros y la paginación no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite, página), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7.
+- **Los filtros y el límite no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7.
 - En rangos de fechas amplios, `reportia_movements_list` no tenía parámetro de límite y la respuesta podía ser rechazada por tamaño. Versiones posteriores agregaron límite y paginación (ver 0.2.1 y 0.3.0).
 - Esta versión, como todas las publicadas hasta hoy, ofrece también herramientas que **cambian o borran datos** en Reportia (por ejemplo, borrar todos los movimientos de una empresa) y **no tiene modo de solo lectura**. Quien conecta un asistente al paquete debe tenerlo en cuenta.

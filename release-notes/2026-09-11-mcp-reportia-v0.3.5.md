@@ -14,5 +14,5 @@ Fecha: 2026-09-11.
 ## Lo que todavía puede fallar
 
 - **`reportia_movements_list` seguía sin poder usarse.** La corrección de esta versión no bastó: el asistente seguía sin recibir los parámetros de la herramienta y toda llamada se rechazaba con `INVALID_INPUT`. Se corrigió en la versión 0.3.6.
-- **Los filtros y la paginación no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite, página), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7.
+- **Los filtros y la paginación no llegaban a Reportia.** Cuando le pedías al asistente un listado, una búsqueda o una exportación con filtros (fechas, NIT, número de documento, límite, desplazamiento `offset`), esos datos no se enviaban: Reportia respondía como si no hubiera filtros. Se corrigió en la versión 0.3.7.
 - Esta versión, como todas las publicadas hasta hoy, ofrece también herramientas que **cambian o borran datos** en Reportia (por ejemplo, borrar todos los movimientos de una empresa) y **no tiene modo de solo lectura**. Quien conecta un asistente al paquete debe tenerlo en cuenta.
