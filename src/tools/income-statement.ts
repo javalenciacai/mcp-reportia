@@ -203,7 +203,14 @@ function assertContract(data: unknown, schema: z.ZodTypeAny, what: string): Reco
   });
 }
 
-/** Claves de las hojas con `movementCount > 0` que no traen el bloque `movements`. */
+/** Las únicas raíces que el contrato define para `lines` (§3.1). Cualquier otra clave es una extensión (§7). */
+const LINE_ROOTS = ['income', 'cost', 'expense'] as const;
+
+/**
+ * Claves de las hojas con `movementCount > 0` que no traen el bloque `movements`.
+ * Recorre solo las raíces del contrato y, dentro de cada nodo, solo `children`:
+ * una clave desconocida (aunque imite una hoja) se tolera y no se interpreta.
+ */
 function leavesMissingMovements(lines: Record<string, unknown>): string[] {
   const missing: string[] = [];
   const visit = (n: any): void => {
@@ -214,7 +221,7 @@ function leavesMissingMovements(lines: Record<string, unknown>): string[] {
     }
     if (Array.isArray(n.children)) n.children.forEach(visit);
   };
-  Object.values(lines).forEach(visit);
+  LINE_ROOTS.forEach((root) => visit(lines[root]));
   return missing;
 }
 

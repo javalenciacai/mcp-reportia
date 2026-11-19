@@ -881,3 +881,85 @@ describe('B-3: toda hoja con movimientos trae `movements` cuando se pidieron mov
     expect(r.isError).toBeFalsy();
   });
 });
+
+describe('extensiones (contrato §7): una clave desconocida en cualquier nivel se tolera y se propaga intacta', () => {
+  const leafLike = { leaf: true, key: 'metadata', movementCount: 3 };
+  const movementLike = { id: 1, date: '2026-10-05', direction: 'D', amount: '1.00' };
+  /** Una extensión de cada tipo, con forma que imita un nodo hoja o un movimiento. */
+  const EXTENSIONS: Array<[string, unknown]> = [
+    ['objeto con forma de hoja', leafLike],
+    ['objeto con forma de movimiento', movementLike],
+    ['cadena', 'valor-extra'],
+    ['arreglo de hojas', [leafLike, { ...leafLike, key: 'otra' }]],
+  ];
+
+  const summaryLevels: Array<[string, (f: any) => any]> = [
+    ['raíz', (f) => f],
+    ['company', (f) => f.company],
+    ['period', (f) => f.period],
+    ['lines', (f) => f.lines],
+    ['nodo de clase', (f) => f.lines.income],
+    ['nodo de grupo', (f) => f.lines.income.children[0]],
+    ['hoja', (f) => f.lines.income.children[0].children[0]],
+    ['provenance de un nodo', (f) => f.lines.income.provenance],
+    ['provenance.filter de un nodo', (f) => f.lines.income.provenance.filter],
+    ['provenance.filter de una hoja', (f) => f.lines.income.children[0].children[0].provenance.filter],
+    ['movements', (f) => f.lines.income.children[0].children[0].movements],
+    ['fila de movements', (f) => f.lines.income.children[0].children[0].movements.rows[0]],
+    ['remainder', (f) => f.lines.income.children[0].children[0].movements.remainder],
+    ['grossProfit', (f) => f.grossProfit],
+    ['elemento de unclassified', (f) => f.unclassified[0]],
+    ['provenance.filter de unclassified', (f) => f.unclassified[0].provenance.filter],
+    ['definition', (f) => f.definition],
+    ['dataQuality', (f) => f.dataQuality],
+    ['dataQuality.voided', (f) => f.dataQuality.voided],
+    ['rowBudget', (f) => f.rowBudget],
+  ];
+
+  const breakdownLevels: Array<[string, (f: any) => any]> = [
+    ['desglose: raíz', (f) => f],
+    ['desglose: totals', (f) => f.totals],
+    ['desglose: page', (f) => f.page],
+    ['desglose: fila', (f) => f.rows[0]],
+    ['desglose: dataQuality', (f) => f.dataQuality],
+  ];
+
+  const cases = [
+    ...summaryLevels.flatMap(([lvl, at]) => EXTENSIONS.map(([ext, value]) => ({ drill: false, lvl, at, ext, value }))),
+    ...breakdownLevels.flatMap(([lvl, at]) => EXTENSIONS.map(([ext, value]) => ({ drill: true, lvl, at, ext, value }))),
+  ];
+
+  it.each(cases.map((c) => [`${c.lvl} · ${c.ext}`, c] as const))('%s', async (_name, c) => {
+    const sent = c.drill ? breakdownFixture() : summaryFixture();
+    c.at(sent).extension = structuredClone(c.value);
+    const { mcp } = await connect({ companyId: 7 }, () => structuredClone(sent));
+    const args = c.drill ? { ...PERIOD, account: '520505', limit: 1, offset: 1 } : { ...PERIOD, movementsPerAccount: 5 };
+    const r = await invoke(mcp, args);
+    expect(r.isError, r.text).toBe(false);
+    const { query, warnings, ...upstream } = r.json;
+    expect(query).toBeDefined();
+    expect(warnings).toEqual([]);
+    expect(upstream).toEqual(sent);
+  });
+
+  it('una extensión con forma de hoja en `lines` no oculta una hoja real sin movements', async () => {
+    const f = summaryFixture();
+    f.lines.extension = leafLike;
+    delete f.lines.cost.children[0].children[0].movements;
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 5 });
+    expect(r.isError).toBe(true);
+    expect(r.json.details.leaves).toEqual([f.lines.cost.children[0].children[0].key]);
+  });
+
+  it('`query` y `warnings` en niveles internos no están reservados', async () => {
+    const f = summaryFixture();
+    f.lines.query = leafLike;
+    f.company.warnings = ['x'];
+    const { mcp } = await connect({ companyId: 7 }, () => structuredClone(f));
+    const r = await invoke(mcp, { ...PERIOD, movementsPerAccount: 5 });
+    expect(r.isError, r.text).toBe(false);
+    const { query, warnings, ...upstream } = r.json;
+    expect(upstream).toEqual(f);
+  });
+});
