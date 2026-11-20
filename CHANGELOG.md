@@ -30,7 +30,7 @@ Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se pub
 
 - Actualización de dependencias de runtime por avisos de seguridad: `@modelcontextprotocol/sdk` 1.30.0 → 1.32.2 (versión exacta), `undici` 6.28.0 → 6.29.1 y sus dependencias transitivas, y la acción de publicación de GitHub fijada por commit. Sin cambios de comportamiento en las tools.
 - El mínimo declarado de `undici` sube a `^6.29.1`. El paquete no incluye lockfile, así que quien lo instala resuelve según los rangos declarados.
-- El registro público de servidores MCP (`server.json`) vuelve a mostrar la versión correcta de esta publicación; antes se había quedado en una versión vieja.
+- Al publicar esta versión se intentará actualizar la ficha del registro público de servidores MCP (`server.json`, ahora alineado con el paquete); la actualización no está garantizada, porque el paso del registro tolera el fallo, y hasta confirmarla el registro puede seguir mostrando una versión anterior.
 
 ## v0.3.7 - 2026-09-12
 
