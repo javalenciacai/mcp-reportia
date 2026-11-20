@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "company": { "id": 1 },
+  "period": { "dateFrom": "2026-10-01", "dateTo": "2026-10-31" },
+  "generatedAt": "2026-11-18T12:00:01Z",
+  "lineKey": "520505",
+  "totals": { "count": 2, "debit": "12000000.625", "credit": "0.00" },
+  "page": { "limit": 1, "offset": 1, "returned": 1, "hasMore": false },
+  "rows": [
+    {
+      "id": 1005,
+      "date": "2026-10-31",
+      "document": { "type": "E", "code": "CE", "number": "0042" },
+      "account": "520505",
+      "accountName": null,
+      "description": "Gasto",
+      "third": { "nit": "900000002", "name": null },
+      "direction": "D",
+      "amount": "0.125"
+    }
+  ],
+  "dataQuality": {
+    "voided": { "count": 0, "debit": "0.00", "credit": "0.00" },
+    "invalidValue": { "count": 0 },
+    "invalidDirection": { "count": 0, "amount": "0.00" },
+    "withoutDate": { "count": 0 }
+  }
+}

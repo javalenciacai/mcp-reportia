@@ -25,7 +25,7 @@ const ConfigSchema = z.object({
   /**
    * Perfil de solo lectura: con `REPORTIA_READ_ONLY=true` el
    * servidor registra solo las tools de `read-only-tools.json` y fija la
-   * empresa a `REPORTIA_COMPANY_ID`. Ausente o vacío = `false` (las 66 tools); un
+   * empresa a `REPORTIA_COMPANY_ID`. Ausente o vacío = `false` (las 67 tools); un
    * valor distinto de `true|false|1|0` impide arrancar.
    */
   readOnly: z.boolean().default(false),

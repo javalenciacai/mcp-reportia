@@ -27,6 +27,10 @@ import type { ReportiaClient } from '../src/client.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+const INCOME_STATEMENT_FIXTURE = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'tests', 'fixtures', 'income-statement.synthetic.json'), 'utf8'),
+);
+
 interface Recorded {
   kind: 'call' | 'download';
   method: string;
@@ -40,6 +44,8 @@ function fakeClient() {
     version: 'fake',
     async call(endpoint: string, options?: { method?: string; body?: unknown }) {
       calls.push({ kind: 'call', method: options?.method ?? 'GET', endpoint, body: options?.body });
+      // La tool de estado de resultados valida la forma de la respuesta de Reportia.
+      if (endpoint.endsWith('/reports/income-statement')) return INCOME_STATEMENT_FIXTURE;
       return { ok: true };
     },
     async download(endpoint: string, options?: { method?: string }) {
@@ -88,6 +94,7 @@ const MIN_ARGS: Record<string, Record<string, unknown>> = {
   reportia_cost_center_report_get: { reportId: 1 },
   reportia_line_group_description: { line: 'L', group: 'G' },
   reportia_line_group_suggestions_by_type: { type: 'lines' },
+  reportia_income_statement_get: { dateFrom: '2026-10-01', dateTo: '2026-10-31' },
   reportia_movements_export_excel: { format: 'excel' },
   reportia_movements_export_pdf: { format: 'pdf' },
   reportia_movements_list: { dateFrom: '2025-01-01' },
@@ -101,11 +108,11 @@ const MIN_ARGS: Record<string, Record<string, unknown>> = {
 const names = (xs: readonly { name: string }[]) => xs.map((t) => t.name);
 
 describe('HU-0 · perfil de solo lectura', () => {
-  it('T0-01: tools/list con readOnly devuelve exactamente las 37 de la lista canónica y ninguna mutante', async () => {
+  it('T0-01: tools/list con readOnly devuelve exactamente las 38 de la lista canónica y ninguna mutante', async () => {
     const { mcp } = await connect({ readOnly: true, companyId: 7 });
     const listed = (await mcp.listTools()).tools.map((t) => t.name);
     const artifact = JSON.parse(fs.readFileSync(path.join(ROOT, 'read-only-tools.json'), 'utf8'));
-    expect(listed).toHaveLength(37);
+    expect(listed).toHaveLength(38);
     expect([...listed].sort()).toEqual([...READ_ONLY_TOOLS]);
     expect([...listed].sort()).toEqual(artifact.tools);
     // El orden de registro es el de allTools (estable).
@@ -150,13 +157,13 @@ describe('HU-0 · perfil de solo lectura', () => {
     ]);
   });
 
-  it('T0-04: exhaustividad: 66 = 37 + 3 + 26, sin intersecciones y sin tools sin clasificar', () => {
+  it('T0-04: exhaustividad: 67 = 38 + 3 + 26, sin intersecciones y sin tools sin clasificar', () => {
     const lists = [READ_ONLY_TOOLS, SENSITIVE_READ_TOOLS, MUTATING_TOOLS];
     const union = lists.flat();
-    expect(union).toHaveLength(66);
-    expect(new Set(union).size).toBe(66);
+    expect(union).toHaveLength(67);
+    expect(new Set(union).size).toBe(67);
     expect([...union].sort()).toEqual(names(allTools).sort());
-    expect([READ_ONLY_TOOLS.length, SENSITIVE_READ_TOOLS.length, MUTATING_TOOLS.length]).toEqual([37, 3, 26]);
+    expect([READ_ONLY_TOOLS.length, SENSITIVE_READ_TOOLS.length, MUTATING_TOOLS.length]).toEqual([38, 3, 26]);
   });
 
   it('T0-04b (meta): una tool nueva sin clasificar haría fallar el chequeo', () => {
@@ -176,14 +183,14 @@ describe('HU-0 · perfil de solo lectura', () => {
     expect(pkg.files).toContain('read-only-tools.json');
   });
 
-  describe('T0-06: sin el flag el servidor expone las 66 tools (como 0.3.7)', () => {
+  describe('T0-06: sin el flag el servidor expone las 67 tools (las 66 de 0.3.7 más la de estado de resultados)', () => {
     it.each([
       ['ausente', {}],
       ['readOnly=false', { readOnly: false }],
     ])('%s', async (_label, overrides) => {
       const { mcp } = await connect(overrides);
       const listed = (await mcp.listTools()).tools.map((t) => t.name);
-      expect(listed).toHaveLength(66);
+      expect(listed).toHaveLength(67);
       expect(listed).toEqual(names(allTools));
     });
 
@@ -199,8 +206,8 @@ describe('HU-0 · perfil de solo lectura', () => {
     });
 
     it('toolsForProfile sin flag devuelve todo, con flag filtra', () => {
-      expect(toolsForProfile(allTools, {})).toHaveLength(66);
-      expect(toolsForProfile(allTools, { readOnly: true })).toHaveLength(37);
+      expect(toolsForProfile(allTools, {})).toHaveLength(67);
+      expect(toolsForProfile(allTools, { readOnly: true })).toHaveLength(38);
     });
   });
 
@@ -351,12 +358,13 @@ const TOOLS_0_3_7: readonly string[] = [
 ];
 
 describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defecto', () => {
-  it('(g) sin flag, `false` o `0`, tools/list es exactamente la lista literal de 0.3.7 (66, mismo orden)', async () => {
+  it('(g) sin flag, `false` o `0`, tools/list es la lista literal de 0.3.7 (66, mismo orden) más la tool nueva al final', async () => {
     expect(TOOLS_0_3_7).toHaveLength(66);
     expect(new Set(TOOLS_0_3_7).size).toBe(66);
+    const expected = [...TOOLS_0_3_7, 'reportia_income_statement_get'];
     for (const overrides of [{}, { readOnly: false }]) {
       const { mcp } = await connect(overrides);
-      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(TOOLS_0_3_7);
+      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(expected);
     }
     const base = { REPORTIA_BASE_URL: 'http://localhost:5000', REPORTIA_TOKEN: 't' };
     for (const v of [undefined, 'false', '0']) {
@@ -365,7 +373,7 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       const mcp = new Client({ name: 'test', version: '0.0.0' });
       const [a, b] = InMemoryTransport.createLinkedPair();
       await Promise.all([server.connect(a), mcp.connect(b)]);
-      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(TOOLS_0_3_7);
+      expect((await mcp.listTools()).tools.map((t) => t.name)).toEqual(expected);
     }
   });
 
@@ -416,6 +424,19 @@ describe('HU-0 · el perfil es opcional y no cambia el comportamiento por defect
       expect(t).toMatch(/configuraci[oó]n de tu empresa, que incluye datos sensibles/i);
       expect(t).toMatch(/no compartas esas conversaciones/i);
       expect(t).toMatch(/antes de cambiar, borrar o sincronizar datos/i);
+      expect(t).toMatch(/datos incompletos en los terceros o en los documentos de un movimiento/i);
+      expect(t).toMatch(/error de contrato en vez de mostrar cifras/i);
+      expect(t).toMatch(/2 MiB se mide sobre el texto/i);
+      expect(t).toMatch(/hasta casi el triple \(≈3 veces\)/i);
+      expect(t).not.toMatch(/el doble|≈ ?2 veces|1,6|60 ?%/i);
+    });
+
+    it('README y CHANGELOG declaran el margen de transmisión como hasta casi el triple, sin cifras menores', () => {
+      const readme = docs.find((d) => d.f === 'README.md')!.text;
+      const changelog = docs.find((d) => d.f === 'CHANGELOG.md')!.text;
+      expect(readme).toMatch(/2 MiB[^|\n]*hasta casi el triple \(≈3 veces\)/i);
+      expect(changelog).toMatch(/hasta casi el triple \(≈3 veces\) su tamaño en texto/i);
+      for (const text of [readme, changelog]) expect(text).not.toMatch(/el doble|≈ ?2 veces|≈1,6|1,6|cerca del 60 ?%|60 ?%/i);
     });
 
     it('README, CHANGELOG y server.json dicen que el valor vacío equivale a apagado', () => {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.javalenciacai/mcp-reportia",
-  "description": "Reportia HTTP API as 66 curated MCP tools (accounting, mappings, SIIGO), with an optional read-only profile (37 query tools).",
+  "description": "Reportia HTTP API as 67 curated MCP tools (accounting, mappings, SIIGO, income statement with provenance), with an optional read-only profile (38 query tools).",
   "repository": {
     "url": "https://github.com/javalenciacai/mcp-reportia.git",
     "source": "github"
@@ -71,7 +71,7 @@
           "name": "REPORTIA_MAX_DOWNLOAD_BYTES"
         },
         {
-          "description": "Optional read-only profile (37 tools). Empty or unset = off; invalid values stop startup.",
+          "description": "Optional read-only profile (38 tools). Empty or unset = off; invalid values stop startup.",
           "isRequired": false,
           "name": "REPORTIA_READ_ONLY"
         }

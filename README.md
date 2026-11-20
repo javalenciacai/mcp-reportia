@@ -169,7 +169,7 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | `REPORTIA_EMAIL`        | Condicional\*        | Email para login por sesión (cookie).                                                                                                    |
 | `REPORTIA_PASSWORD`     | Condicional\*        | Contraseña para login por sesión (cookie).                                                                                               |
 | `REPORTIA_COMPANY_ID`   | No                   | `companyId` por defecto cuando la tool lo admita. Acepta entero positivo.                                                                |
-| `REPORTIA_READ_ONLY`    | No (def. `false`)    | Perfil de solo lectura: con `true` (o `1`) el servidor registra solo las 37 tools de consulta de `read-only-tools.json` y, si `REPORTIA_COMPANY_ID` está definida, rechaza un `companyId` de entrada distinto (`COMPANY_MISMATCH`; ver «Candado de empresa»). Ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar. Ver [Perfil de solo lectura](#perfil-de-solo-lectura). |
+| `REPORTIA_READ_ONLY`    | No (def. `false`)    | Perfil de solo lectura: con `true` (o `1`) el servidor registra solo las 38 tools de consulta de `read-only-tools.json` y, si `REPORTIA_COMPANY_ID` está definida, rechaza un `companyId` de entrada distinto (`COMPANY_MISMATCH`; ver «Candado de empresa»). Ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar. Ver [Perfil de solo lectura](#perfil-de-solo-lectura). |
 | `REPORTIA_TIMEOUT_MS`   | No (def. `30000`)    | Timeout por petición HTTP en ms.                                                                                                         |
 | `REPORTIA_DOWNLOAD_DIR` | No (def. `./downloads`) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados).                                                              |
 | `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/0.1.0`) | Cabecera `User-Agent` en cada request.                                                                                       |
@@ -278,7 +278,7 @@ Cuando el caller (p.ej. un servidor AI multi-tenant) ya resolvió la sesión de 
 
 ## Herramientas disponibles
 
-El servidor expone **66 herramientas** con el prefijo `reportia_`. Todas devuelven JSON (string con `JSON.stringify` pretty-print) y validan su input con Zod. Se agrupan por dominio funcional:
+El servidor expone **67 herramientas** con el prefijo `reportia_`. Todas devuelven JSON (string con `JSON.stringify` pretty-print) y validan su input con Zod. Se agrupan por dominio funcional:
 
 | Dominio | Módulo | Cantidad |
 | ------- | ------ | -------- |
@@ -291,7 +291,8 @@ El servidor expone **66 herramientas** con el prefijo `reportia_`. Todas devuelv
 | Vendedor × factura | `src/tools/salesperson-invoice.ts` | 11 |
 | Línea × centro de costo | `src/tools/line-cost-center.ts` | 22 |
 | Operaciones (uploads, colas, SIIGO) | `src/tools/operations.ts` | 10 |
-| **Total** | | **66** |
+| Estado de resultados con procedencia | `src/tools/income-statement.ts` | 1 |
+| **Total** | | **67** |
 
 ### Salud y autenticación (`src/tools/auth-health.ts`)
 
@@ -414,14 +415,51 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 
 `companyId` puede omitirse si configuraste `REPORTIA_COMPANY_ID`; en caso contrario, es obligatorio en todas las tools que tocan datos por empresa.
 
+### Estado de resultados con procedencia (`src/tools/income-statement.ts`)
+
+`reportia_income_statement_get` devuelve el estado de resultados de una empresa para un periodo, con la **procedencia de cada total**: de dónde sale cada cifra y qué movimientos la componen. Es de **solo lectura** (solo `GET`) y está incluida en el [perfil de solo lectura](#perfil-de-solo-lectura).
+
+| Campo de entrada      | Obligatorio | Qué es |
+| --------------------- | ----------- | ------ |
+| `dateFrom`, `dateTo`  | Sí          | Periodo, `YYYY-MM-DD`, ambos inclusivos. Fechas inexistentes, periodos invertidos o con otro formato se rechazan antes de llamar a Reportia (`INVALID_INPUT` / `INVALID_DATE_RANGE`). |
+| `movementsPerAccount` | No (def. 5) | Movimientos de muestra por cuenta, de 0 a 50. Se envía siempre de forma explícita. |
+| `account`             | No          | Código o prefijo de una línea del reporte (solo dígitos, 1 a 10). Con él, la tool devuelve el **desglose paginado** de esa línea. |
+| `limit`, `offset`     | No          | Solo con `account`: página de movimientos (`limit` 1–1000, por defecto 100; `offset` desde 0). Sin `account` se ignoran y la tool lo avisa en `warnings` (`PARAM_IGNORED`). |
+| `companyId`           | No          | Empresa. Si falta se usa `REPORTIA_COMPANY_ID`; si no hay ninguno, `MISSING_COMPANY_ID` sin llamar a Reportia. Con `REPORTIA_READ_ONLY=true` y `REPORTIA_COMPANY_ID` definida, un `companyId` distinto falla con `COMPANY_MISMATCH`. Nunca viaja en la consulta, solo en la ruta. |
+
+**Qué devuelve.** La respuesta de Reportia **tal cual**, más dos campos de la tool: `query` (eco de lo que se pidió, con la empresa resuelta) y `warnings`. La tool no recalcula, no redondea ni reescribe ninguna cifra: los importes son cadenas decimales exactas (por ejemplo `"12000000.625"`) y deben tratarse como texto.
+
+- **Procedencia.** Cada línea (clase 4 ingresos, 5 gastos, 6 costos, luego grupo y cuenta) trae `provenance.filter` (el filtro que reproduce la cifra) y `movementCount`. Las cuentas traen hasta `movementsPerAccount` movimientos de muestra en `movements.rows`.
+- **Lo que no cabe se declara, no se oculta.** Cuando Reportia recorta filas, `movements.remainder` (`count`, `debit`, `credit`) dice cuánto quedó fuera, y `rowBudget.truncated` indica si se alcanzó el tope por respuesta (500 filas). Para pedir el resto de una línea, repite la llamada con `account`, `limit` y `offset`. La tool nunca recorta filas por su cuenta.
+- **Respuesta con datos incompletos.** Si Reportia devuelve terceros o documentos de un movimiento incompletos (sin `nit`, o sin tipo o código de documento), la validación responde `UPSTREAM_CONTRACT_MISMATCH` en vez de mostrar cifras, aunque los totales sean correctos.
+- **Utilidad bruta, no neta.** `grossProfit.amount` es ingresos menos costos. No hay utilidad operacional ni neta.
+- **Cuentas fuera de las clases 4, 5 y 6** aparecen en `unclassified` y no entran en ningún total. Lo excluido o inválido (anulados, importes o sentidos inválidos, movimientos sin fecha) está en `dataQuality`, fuera de los totales.
+- **Sin nombres de cuenta.** `accountName` viene siempre `null`; el nombre del tercero puede ser `null`. `definition.notes` lo declara.
+- **Cifras no «en vivo».** Reportia guarda los resultados en caché hasta 5 minutos: dos llamadas seguidas pueden dar cifras distintas si se cargaron datos entre medio.
+
+**Errores.** El resultado es siempre un error explícito, nunca un agregado parcial ni vacío:
+
+| Código | Cuándo |
+| ------ | ------ |
+| `INVALID_INPUT` | Entrada inválida (aquí o en Reportia, que además aporta `details.issues`). |
+| `INVALID_DATE_RANGE` | `dateFrom` posterior a `dateTo`. |
+| `MISSING_COMPANY_ID` / `COMPANY_MISMATCH` | Falta la empresa / la empresa pedida no es la fijada con el perfil de solo lectura. Ninguno llama a Reportia. |
+| `AUTH_ERROR` | Sesión ausente o vencida. La tool no renueva la sesión. |
+| `NOT_FOUND` | La empresa no existe o no hay acceso. El código de Reportia viaja en `details.upstreamCode` (por ejemplo `COMPANY_NOT_ACCESSIBLE`). |
+| `RATE_LIMITED` | Reportia limita las peticiones (100 por minuto). **No se reintenta.** |
+| `UNEXPECTED` | Error interno de Reportia. |
+| `NETWORK_ERROR` / `TIMEOUT` | No se pudo llegar a Reportia / tardó demasiado. |
+| `UPSTREAM_CONTRACT_MISMATCH` | La respuesta de Reportia no tiene la forma esperada o usa una `schemaVersion` que esta versión no conoce. Un campo adicional que la tool no conoce **no** es un error: se propaga. |
+| `OUTPUT_TOO_LARGE` | La salida supera 2 MiB (`MAX_OUTPUT_BYTES`), medidos sobre el texto de la respuesta; en la conexión puede ocupar hasta casi el triple (≈3 veces) según el contenido, porque el protocolo la envía dos veces, en texto y de forma estructurada, y escapa algunos caracteres. Es una red de seguridad: no se devuelven datos parciales; baja `movementsPerAccount` o pide el desglose de una línea con `account`. |
+
 ---
 
 ## Perfil de solo lectura
 
-Perfil opcional para consumidores que solo deben consultar. **Está apagado por defecto y no se activa en el chat de producción** (que conserva las 66 tools). Se activa con `REPORTIA_READ_ONLY=true`; con la variable ausente o vacía el servidor expone las 66 tools, igual que antes. Cualquier valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar.
+Perfil opcional para consumidores que solo deben consultar. **Está apagado por defecto y no se activa en el chat de producción** (que conserva todas las tools). Se activa con `REPORTIA_READ_ONLY=true`; con la variable ausente o vacía el servidor expone las 67 tools. Cualquier valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar.
 
-- **Qué expone:** exactamente las **37** tools de consulta listadas en `read-only-tools.json` (raíz del paquete, ruta instalada `<node_modules>/@james.valencia/mcp-reportia/read-only-tools.json`; forma `{ "schemaVersion": 1, "profile": "read-only", "tools": [...] }`, nombres ordenados). Incluye `reportia_third_parties_portfolio_balance` (usa `POST` solo como transporte; es consulta pura) y las 5 exportaciones, que escriben archivos locales en `REPORTIA_DOWNLOAD_DIR`, nunca en Reportia.
-- **Qué deja fuera (29):** las **26** tools mutantes (o con efecto operativo, incluidas `reportia_logout`, `reportia_cost_center_report_execute` y los envíos de correo de facturas) y **3 lecturas de configuración sensibles** (`SENSITIVE_READ_TOOLS` en `src/read-only-tools.ts`). 37 + 3 + 26 = 66.
+- **Qué expone:** exactamente las **38** tools de consulta listadas en `read-only-tools.json` (raíz del paquete, ruta instalada `<node_modules>/@james.valencia/mcp-reportia/read-only-tools.json`; forma `{ "schemaVersion": 1, "profile": "read-only", "tools": [...] }`, nombres ordenados). Incluye `reportia_third_parties_portfolio_balance` (usa `POST` solo como transporte; es consulta pura) y las 5 exportaciones, que escriben archivos locales en `REPORTIA_DOWNLOAD_DIR`, nunca en Reportia.
+- **Qué deja fuera (29):** las **26** tools mutantes (o con efecto operativo, incluidas `reportia_logout`, `reportia_cost_center_report_execute` y los envíos de correo de facturas) y **3 lecturas de configuración sensibles** (`SENSITIVE_READ_TOOLS` en `src/read-only-tools.ts`). 38 + 3 + 26 = 67.
 - **Cómo falla una tool fuera del perfil:** no está registrada; el SDK responde `-32602 «Tool … not found»` y el servidor no hace ninguna llamada HTTP. Los consumidores deben tratarlo como «tool no disponible» sin depender del código exacto.
 - **Candado de empresa:** con el perfil activo y `REPORTIA_COMPANY_ID` definido, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` sin llamar a la API. Sin el perfil, el `companyId` de entrada sigue teniendo prioridad sobre el default.
 - **Para quien lo activa:** puede fijar además una lista de tools permitidas (`allowedTools`) como subconjunto de `read-only-tools.json` y verificar al arrancar que `tools/list` ⊆ esa lista; son dos controles independientes y ninguno es obligatorio. Una tool nueva del paquete debe clasificarse en `src/read-only-tools.ts`: un test falla si falta.
@@ -441,7 +479,7 @@ Perfil opcional para consumidores que solo deben consultar. **Está apagado por 
 
 El servidor está diseñado para minimizar superficie de ataque cuando es invocado por un LLM:
 
-- **No hay herramienta HTTP genérica**: las tools son curadas por dominio (66 endpoints específicos). El LLM no puede apuntar el cliente a una URL arbitraria ni a una IP interna.
+- **No hay herramienta HTTP genérica**: las tools son curadas por dominio (67 endpoints específicos). El LLM no puede apuntar el cliente a una URL arbitraria ni a una IP interna.
 - **Validación Zod en cada input**: ningún handler llega a la red sin antes pasar por un esquema que rechaza tipos, rangos y formatos inválidos.
 - **Tools destructivas requieren `confirm: true` literal**: se declaran con `destructive: true` y verifican con `assertConfirmed(...)` antes de cualquier llamada HTTP. Si falta `confirm`, devuelven `GUARD_REJECTED` **sin tocar la API**. El LLM debe pedirle al usuario confirmación explícita antes de invocarlas.
 - **Interpolación segura en URLs**: los IDs numéricos (companyId, mappingId, reportId, runId, uploadId) son validados como `z.number().int().positive()` antes de la interpolación. Los strings de path (NIT, invoiceId, mappingId de líneas/centros) usan `encodeURIComponent` y/o se restringen a un alfabeto seguro (`[A-Za-z0-9-]+` para NITs).
@@ -478,6 +516,8 @@ El servidor está diseñado para minimizar superficie de ataque cuando es invoca
 | `GET /api/third-parties/search`                       | `reportia_third_parties_search`                 |
 | `GET /api/third-parties/by-nit/:nit`                  | `reportia_third_parties_get_by_nit`             |
 | `GET /api/third-parties/portfolio-balance`            | `reportia_third_parties_portfolio_balance`      |
+| `GET /api/companies/:id/reports/income-statement`     | `reportia_income_statement_get`                 |
+| `GET /api/companies/:id/reports/account-aggregates/movements` | `reportia_income_statement_get` (con `account`) |
 
 ### Omitidas (fuera de alcance de esta versión)
 

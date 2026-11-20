@@ -47,14 +47,14 @@ jobs:
       - name: Smoke (MCP handshake offline)
         run: npm run build && npm run test:smoke
 
-      - name: Verify 66 tools exposed
+      - name: Verify 67 tools exposed
         run: |
           set -e
           node scripts/jsonrpc-smoke.mjs 2>&1 | tee /tmp/smoke.log
-          if ! grep -q "OK: tools/list devolvio 66 herramientas" /tmp/smoke.log; then
-            echo "FAIL: smoke no reporto 66 tools"
+          if ! grep -q "OK: tools/list devolvio 67 herramientas" /tmp/smoke.log; then
+            echo "FAIL: smoke no reporto 67 tools"
             exit 1
           fi
 
-      - name: Verify read-only profile (37 tools; invalid value does not start)
+      - name: Verify read-only profile (38 tools; invalid value does not start)
         run: npm run test:smoke:readonly

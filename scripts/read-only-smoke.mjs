@@ -2,7 +2,7 @@
 /**
  * Smoke del perfil de solo lectura a nivel de proceso.
  *
- *  1) REPORTIA_READ_ONLY=true  -> initialize + tools/list = las 37 tools de
+ *  1) REPORTIA_READ_ONLY=true  -> initialize + tools/list = las 38 tools de
  *     `read-only-tools.json`, en ese conjunto exacto.
  *  2) REPORTIA_READ_ONLY=yes   -> el proceso sale con código 1 sin abrir stdio
  *     (nada en stdout) y con un error de configuración legible en stderr.
@@ -43,7 +43,7 @@ if (bad.stdout.length > 0) fail('REPORTIA_READ_ONLY=yes escribió en stdout (no 
 if (!/REPORTIA_READ_ONLY/.test(bad.stderr)) fail('el error de configuración no nombra REPORTIA_READ_ONLY');
 process.stdout.write('[read-only-smoke] OK: valor inválido impide arrancar (código 1, stdout vacío)\n');
 
-// 1) perfil activo: 37 tools.
+// 1) perfil activo: 38 tools.
 const child = spawn(process.execPath, [entry], {
   env: { ...baseEnv, REPORTIA_READ_ONLY: 'true' },
   stdio: ['pipe', 'pipe', 'pipe'],
@@ -80,7 +80,7 @@ try {
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const list = await request(2, 'tools/list');
   const names = (list.result?.tools ?? []).map((t) => t.name);
-  if (names.length !== 37) throw new Error(`tools/list devolvió ${names.length} tools, se esperaban 37`);
+  if (names.length !== 38) throw new Error(`tools/list devolvió ${names.length} tools, se esperaban 38`);
   if (JSON.stringify([...names].sort()) !== JSON.stringify(expected)) {
     throw new Error('tools/list no coincide con read-only-tools.json');
   }

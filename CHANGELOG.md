@@ -1,16 +1,29 @@
 ﻿# Changelog
 
-## Unreleased (0.4.0)
+## Unreleased (0.5.0)
+
+Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se publica por separado) y la tool de estado de resultados.
+
+### Estado de resultados con procedencia
+
+- **Nueva** `reportia_income_statement_get` (`src/tools/income-statement.ts`): estado de resultados de un periodo (`dateFrom`/`dateTo`, inclusivos) con la procedencia de cada total (`provenance.filter`, `movementCount`, movimientos de muestra por cuenta y `remainder` de lo que no cupo). Con `account` devuelve el desglose paginado de una línea (`limit`/`offset`). Solo `GET`; clasificada en `READ_ONLY_TOOLS`.
+- La respuesta de Reportia se propaga **sin reescribir ni recalcular** (importes como cadenas decimales exactas), más `query` (eco) y `warnings`. Validación no estricta: exige los campos del contrato y tolera los nuevos; si falta alguno, o la `schemaVersion` no se conoce, responde `UPSTREAM_CONTRACT_MISMATCH`.
+- `movementsPerAccount` (0–50, por defecto 5) se envía siempre explícito. Una sola capa de truncado, la de Reportia; la tool solo responde `OUTPUT_TOO_LARGE` (sin datos parciales) si la salida supera 2 MiB.
+- Empresa como el resto de las tools de consulta: `companyId` de la entrada, si no `REPORTIA_COMPANY_ID`, si ninguno `MISSING_COMPANY_ID` (sin llamar a la API); con `REPORTIA_READ_ONLY=true` rige el candado de empresa. `companyId` nunca viaja en la consulta.
+- Errores de Reportia mapeados: 400 → `INVALID_INPUT`, 401 → `AUTH_ERROR`, 404 → `NOT_FOUND` (con `details.upstreamCode`), 429 → `RATE_LIMITED` (sin reintento), 5xx → `UNEXPECTED`. Periodo inválido o invertido (`INVALID_INPUT` / `INVALID_DATE_RANGE`) se rechaza sin llamar a la API.
+- **Límites declarados (solo documentación):** el tope de 2 MiB se mide sobre el texto; en la conexión la respuesta puede ocupar hasta casi el triple (≈3 veces) su tamaño en texto según el contenido, porque el protocolo la envía dos veces, en texto y de forma estructurada, y escapa algunos caracteres. Y si Reportia devuelve terceros o documentos de un movimiento incompletos (sin `nit`, o sin tipo o código de documento), la validación responde `UPSTREAM_CONTRACT_MISMATCH` aunque los totales sean correctos. Sin cambio de comportamiento.
+- **Perfil de solo lectura y totales:** el catálogo pasa de 66 a **67** tools y el perfil de solo lectura de 37 a **38** (`read-only-tools.json` regenerado). `README.md` documenta la tool y `server.json` ajusta los conteos.
+
 
 ### Perfil de solo lectura y lista canónica
 
-- **Nuevo** `REPORTIA_READ_ONLY` (ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar con `ConfigError`). Con `true`, `createMcpServer` registra solo las 37 tools de `READ_ONLY_TOOLS`; una tool no registrada la rechaza el SDK (`-32602 Tool … not found`) sin llamar a la API.
-- **Nuevo** `src/read-only-tools.ts`: tres listas explícitas (`READ_ONLY_TOOLS` 37, `SENSITIVE_READ_TOOLS` 3, `MUTATING_TOOLS` 26) que suman las 66 tools. Un test de exhaustividad falla si una tool nueva no se clasifica. No se deriva de `destructive`: no cubre 11 mutantes: los 10 create/update de mapeos y reportes de centro de costo, y `logout`.
+- **Nuevo** `REPORTIA_READ_ONLY` (ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar con `ConfigError`). Con `true`, `createMcpServer` registra solo las 38 tools de `READ_ONLY_TOOLS`; una tool no registrada la rechaza el SDK (`-32602 Tool … not found`) sin llamar a la API.
+- **Nuevo** `src/read-only-tools.ts`: tres listas explícitas (`READ_ONLY_TOOLS` 38, `SENSITIVE_READ_TOOLS` 3, `MUTATING_TOOLS` 26) que suman las 67 tools. Un test de exhaustividad falla si una tool nueva no se clasifica. No se deriva de `destructive`: no cubre 11 mutantes: los 10 create/update de mapeos y reportes de centro de costo, y `logout`.
 - **Nuevo** `read-only-tools.json` en la raíz del paquete (incluido en `files`): `{ schemaVersion: 1, profile: "read-only", tools: [...] }`.
 - **Seguridad**: el perfil deja fuera tres lecturas de configuración sensibles (clasificadas como `SENSITIVE_READ_TOOLS`).
 - **Candado de empresa**: con el perfil activo y `REPORTIA_COMPANY_ID`, un `companyId` de entrada distinto falla con `COMPANY_MISMATCH` (`ToolContext.lockCompany`). Sin el perfil, sin cambios.
-- **CI**: paso `test:smoke:readonly` (37 tools con el flag; valor inválido no arranca). `server.json` alineado con el paquete (versión, descripción, variable nueva).
-- **Compatibilidad**: sin la variable, 66 tools e idéntico comportamiento a 0.3.7 (semver minor). El chat de producción no activa el perfil y no cambia.
+- **CI**: paso `test:smoke:readonly` (38 tools con el flag; valor inválido no arranca). `server.json` alineado con el paquete (versión, descripción, variable nueva).
+- **Compatibilidad**: sin la variable, las 66 tools de 0.3.7 se comportan igual y se suma la de estado de resultados (67; semver minor). El chat de producción no activa el perfil y no cambia.
 
 ## v0.3.7 - 2026-09-12
 

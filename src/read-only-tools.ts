@@ -30,6 +30,7 @@ export const READ_ONLY_TOOLS: readonly string[] = [
   'reportia_health',
   'reportia_health_queue_system',
   'reportia_health_workers',
+  'reportia_income_statement_get',
   'reportia_invoices_list',
   'reportia_line_group_description',
   'reportia_line_group_mappings_list',
