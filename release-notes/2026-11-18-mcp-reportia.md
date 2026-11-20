@@ -5,8 +5,8 @@
 ## Qué vas a notar
 
 - **Hay una herramienta nueva: el estado de resultados con el origen de cada cifra** (`reportia_income_statement_get`). Pides un periodo y recibes ingresos, costos y gastos con la utilidad bruta; cada total dice de dónde sale y trae una muestra de los movimientos que lo componen (5 por cuenta, por defecto).
-- **Puedes pedir el resto de los movimientos de cualquier línea.** Indicando la cuenta (o el prefijo de la línea) recibes el desglose completo, por páginas, y la suma de todas las páginas coincide exactamente con el total de la línea.
-- **Lo que no cabe se avisa, no se esconde.** Si una respuesta trae menos movimientos de los que existen, la herramienta dice cuántos faltan y por qué importe. Si una respuesta es demasiado grande, responde con un error claro en lugar de entregar datos a medias.
+- **Puedes pedir el resto de los movimientos de una línea.** Indicando la cuenta (o el prefijo de la línea) recibes el desglose por páginas, con la suma exacta de la línea, para las cuentas cuyo código es numérico (de 1 a 10 dígitos).
+- **Lo que no cabe se avisa, no se esconde.** Si el resumen trae menos movimientos de muestra de los que existen, la herramienta dice cuántos faltan y por qué importe. Las páginas del desglose traen el total de la línea y los datos de paginación para seguir pidiendo las siguientes. Si una respuesta es demasiado grande, responde con un error claro en lugar de entregar datos a medias.
 - **Las cuentas que no son ingresos, costos ni gastos se muestran aparte** (como «no clasificadas») y no entran en la utilidad bruta. También se informa lo que se dejó fuera de los totales: comprobantes anulados, importes o sentidos inválidos y movimientos sin fecha.
 - **Los importes llegan como texto exacto**, sin redondeos (por ejemplo `12000000.625`).
 - **Hay un perfil opcional de solo lectura, apagado por defecto.** Quien integre el paquete puede activarlo (`REPORTIA_READ_ONLY=true`) para que el servidor ofrezca solo las herramientas de consulta (ahora 38, incluida la nueva): ver movimientos, terceros, cartera, reportes y exportar a Excel o PDF.
@@ -16,7 +16,7 @@
 - **Se recomienda actualizar a esta versión.** Incluye la actualización de las librerías de las que depende el paquete por avisos de seguridad.
 - **Versiones mínimas declaradas:** esta versión exige como mínimo `undici` `^6.29.1` y fija el SDK de MCP exactamente en `1.32.2`. Quien ya tenía el paquete instalado con una versión anterior de `undici` la actualizará en su próxima instalación.
 - **Este paquete no trae el archivo de versiones fijas de las dependencias (`package-lock.json`):** quien lo instala recibe las versiones que permitan los rangos declarados, salvo las que están fijadas exactamente (como el SDK de MCP).
-- **El registro público de servidores MCP vuelve a mostrar la versión correcta de esta publicación.** Antes de este release se había quedado en una versión vieja.
+- **Al publicar esta versión se intentará actualizar la ficha del registro público de servidores MCP.** La actualización no está garantizada: puede fallar sin que falle la publicación del paquete. Hasta confirmarlo, el registro puede seguir mostrando una versión anterior.
 
 ## Lo que NO cambia
 
@@ -33,7 +33,8 @@
 - **La herramienta nueva necesita una versión de Reportia que ya publique el estado de resultados.** Con una versión anterior de Reportia responde con un error.
 - **Las cifras pueden tener hasta 5 minutos de antigüedad.** Reportia guarda los resultados en memoria: si se cargaron datos hace poco, dos consultas seguidas pueden dar cifras distintas. No las presentes como «en vivo».
 - **Hay un aviso de seguridad pendiente en una librería de validación que usa el paquete (`zod` 3.x).** No se ha podido determinar si afecta a esta herramienta: el aviso describe un caso de consumo de memoria al validar colecciones muy grandes y no existe una versión 3.x corregida. Corregirlo exige un salto de versión mayor de esa librería, que se hará en una versión posterior; si ese salto cambia algo para quien integra el paquete, se avisará en su nota.
-- **Las cuentas no traen nombre** (solo el código), y el nombre del tercero puede faltar si su NIT no está registrado.
+- **Normalmente las cuentas vienen solo con su código**, pero algunos movimientos pueden traer un nombre de cuenta si Reportia lo entrega. El nombre del tercero puede faltar si su NIT no está registrado.
+- **Una línea o cuenta cuyo código lleva letras (por ejemplo `52A`) aparece en el resumen, pero la herramienta no deja pedir su desglose con ese código.** Se corrige en la versión 0.5.1.
 - **Las cuentas cuyo código no empieza por 4, 5 o 6** (por ejemplo, la clase 7) aparecen como «no clasificadas» y no suman a ningún total.
 - **Cada respuesta trae como máximo 500 movimientos de muestra.** El resto se pide cuenta por cuenta con el desglose. Una respuesta de más de 2 MiB se rechaza (`OUTPUT_TOO_LARGE`): baja el número de movimientos por cuenta o pide el desglose de una línea.
 - **El tope de 2 MiB se mide sobre el texto de la respuesta; en la conexión puede ocupar hasta casi el triple (≈3 veces) según el contenido**, porque el protocolo la envía dos veces, en texto y de forma estructurada, y escapa algunos caracteres. Si integras el paquete, dimensiona tu límite de transmisión con ese margen.
