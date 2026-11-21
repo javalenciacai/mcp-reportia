@@ -1,6 +1,6 @@
-# mcp-reportia 0.5.0 — nota de release (borrador, aún sin publicar)
+# mcp-reportia 0.5.0 — nota de release
 
-> Estado: **borrador pendiente de publicación**. Esta versión incluye también el perfil de solo lectura, que estaba previsto para una 0.4.0 que no se publica por separado. La publicación de 0.5.0 y su tag son un paso posterior, con su propia aprobación.
+> Fecha de publicación prevista: **2026-11-20**. Esta versión incluye también el perfil de solo lectura, que estaba previsto para una 0.4.0 que no se publica por separado.
 
 ## Qué vas a notar
 
@@ -30,7 +30,7 @@
 
 ## Lo que todavía puede fallar
 
-- **La herramienta nueva necesita una versión de Reportia que ya publique el estado de resultados.** Con una versión anterior de Reportia responde con un error.
+- **La herramienta de estado de resultados falla mientras el servidor de Reportia en producción no publique el estado de resultados.** Con una versión anterior de Reportia responde con un error; el resto de las herramientas no se ve afectado.
 - **Las cifras pueden tener hasta 5 minutos de antigüedad.** Reportia guarda los resultados en memoria: si se cargaron datos hace poco, dos consultas seguidas pueden dar cifras distintas. No las presentes como «en vivo».
 - **Hay un aviso de seguridad pendiente en una librería de validación que usa el paquete (`zod` 3.x).** No se ha podido determinar si afecta a esta herramienta: el aviso describe un caso de consumo de memoria al validar colecciones muy grandes y no existe una versión 3.x corregida. Corregirlo exige un salto de versión mayor de esa librería, que se hará en una versión posterior; si ese salto cambia algo para quien integra el paquete, se avisará en su nota.
 - **Normalmente las cuentas vienen solo con su código**, pero algunos movimientos pueden traer un nombre de cuenta si Reportia lo entrega. El nombre del tercero puede faltar si su NIT no está registrado.
