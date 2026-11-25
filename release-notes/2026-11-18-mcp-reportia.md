@@ -1,6 +1,6 @@
 # mcp-reportia 0.5.0 — nota de release
 
-> Fecha de publicación prevista: **2026-11-20**. Esta versión incluye también el perfil de solo lectura, que estaba previsto para una 0.4.0 que no se publica por separado.
+> Fecha de publicación: la de la etiqueta v0.5.0 (no antes de la aprobación de la publicación). Esta versión incluye también el perfil de solo lectura, que estaba previsto para una 0.4.0 que no se publica por separado.
 
 ## Qué vas a notar
 
