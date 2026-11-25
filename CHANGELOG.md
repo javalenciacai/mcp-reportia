@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## v0.5.0 - fecha de publicación pendiente
+## v0.5.0 - fecha de publicación: la de la etiqueta v0.5.0
 
 Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se publica por separado) y la tool de estado de resultados.
 
