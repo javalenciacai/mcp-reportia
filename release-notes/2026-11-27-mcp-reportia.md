@@ -3,7 +3,7 @@
 ## Qué vas a notar
 
 - **El servidor ahora anuncia su versión real** (por ejemplo, al conectarse desde tu cliente MCP) en vez de mostrar siempre `0.1.0`, que era el número de la primera versión publicada.
-- **La respuesta del estado de resultados ya puede traer el nombre que tu empresa le puso a una cuenta**, cuando la mapeaste con un nombre; si no la mapeaste, sigue viniendo solo el código. Esto corrige una afirmación desactualizada de la documentación (decía que ese nombre nunca llegaba).
+- **La respuesta del estado de resultados puede traer el nombre que tu empresa le puso a una cuenta, si tu Reportia ya incluye el mapeo de nombres de cuenta y la mapeaste**; si no la mapeaste, o tu Reportia todavía no lo tiene, sigue viniendo solo el código. Esto corrige una afirmación desactualizada de la documentación (decía que ese nombre nunca llegaba).
 - **Se corrige la ficha que esta versión intenta publicar en el registro público de servidores MCP**: la versión anterior se rechazaba por tener una descripción demasiado larga.
 
 ## Lo que NO cambia
