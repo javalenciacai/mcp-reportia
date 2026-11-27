@@ -434,7 +434,7 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 - **Respuesta con datos incompletos.** Si Reportia devuelve terceros o documentos de un movimiento incompletos (sin `nit`, o sin tipo o código de documento), la validación responde `UPSTREAM_CONTRACT_MISMATCH` en vez de mostrar cifras, aunque los totales sean correctos.
 - **Utilidad bruta, no neta.** `grossProfit.amount` es ingresos menos costos. No hay utilidad operacional ni neta.
 - **Cuentas fuera de las clases 4, 5 y 6** aparecen en `unclassified` y no entran en ningún total. Lo excluido o inválido (anulados, importes o sentidos inválidos, movimientos sin fecha) está en `dataQuality`, fuera de los totales.
-- **Sin nombres de cuenta.** `accountName` viene siempre `null`; el nombre del tercero puede ser `null`. `definition.notes` lo declara.
+- **Nombre de cuenta.** Cada movimiento en `movements.rows` trae `accountName`: el texto que la empresa escribió al mapear ese código de cuenta, o `null` si no la mapeó; no es el nombre oficial de la cuenta, sino una descripción libre de la empresa. El `label` de una hoja (cuenta) es «`<código> · <accountName>`» cuando hay nombre, o solo el código si no lo hay; el de grupo y clase no cambia. El nombre del tercero puede seguir siendo `null`. `definition.notes` lo declara.
 - **Cifras no «en vivo».** Reportia guarda los resultados en caché hasta 5 minutos: dos llamadas seguidas pueden dar cifras distintas si se cargaron datos entre medio.
 
 **Errores.** El resultado es siempre un error explícito, nunca un agregado parcial ni vacío:
