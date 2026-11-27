@@ -172,7 +172,7 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | `REPORTIA_READ_ONLY`    | No (def. `false`)    | Perfil de solo lectura: con `true` (o `1`) el servidor registra solo las 38 tools de consulta de `read-only-tools.json` y, si `REPORTIA_COMPANY_ID` está definida, rechaza un `companyId` de entrada distinto (`COMPANY_MISMATCH`; ver «Candado de empresa»). Ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar. Ver [Perfil de solo lectura](#perfil-de-solo-lectura). |
 | `REPORTIA_TIMEOUT_MS`   | No (def. `30000`)    | Timeout por petición HTTP en ms.                                                                                                         |
 | `REPORTIA_DOWNLOAD_DIR` | No (def. `./downloads`) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados).                                                              |
-| `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/0.1.0`) | Cabecera `User-Agent` en cada request.                                                                                       |
+| `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/<versión del paquete>`) | Cabecera `User-Agent` en cada request.                                                                           |
 
 \* **Exactamente una** de las tres alternativas de auth debe estar presente:
 
