@@ -472,7 +472,8 @@ Perfil opcional para consumidores que solo deben consultar. **Está apagado por 
 - **Subida de archivos (`multipart/form-data`):** el cliente HTTP está preparado (`FormData` desde `undici`) pero las tools actuales **no exponen endpoints de upload** (no hay POST/PUT con `multipart/form-data`). Sí se exponen dos tools **read-only** sobre el histórico y estado de uploads existentes: `reportia_uploads_history_list` (GET `/api/companies/:companyId/upload-history`) y `reportia_upload_status_get` (GET `/api/upload/:uploadId/status`). Si Reportia añade en el futuro endpoints de carga, basta con añadir un ToolDefinition que use `ctx.client.call(..., { formData })`.
 - **Sin caché persistente:** cada invocación vuelve a llamar a la API. El LLM debe sentirse libre de hacer `tools/list` cuando lo necesite.
 - **Errores HTTP:** se traducen a tipos estructurados (`AUTH_ERROR`, `NOT_FOUND`, `VALIDATION_ERROR`, `ROW_LIMIT_EXCEEDED`, `NETWORK_ERROR`, `TIMEOUT`). El cliente nunca expone secretos en el mensaje.
-- **Smoke test offline:** `npm run test:smoke` arranca el servidor con `REPORTIA_BASE_URL=http://127.0.0.1:9` (puerto cerrado). No hace llamadas reales; solo valida el handshake MCP. Para pruebas integradas reales, usa `npm run test:integration` apuntando a un servidor Reportia accesible.
+- **Smoke test offline:** `npm run test:smoke` arranca el servidor con `REPORTIA_BASE_URL=http://127.0.0.1:9` (puerto cerrado). No hace llamadas reales; solo valida el handshake MCP.
+- **Prueba de integración local:** para una prueba de extremo a extremo usa `npm run test:integration`: levanta su propio servidor de prueba local en 127.0.0.1 y nunca llama a la API real de Reportia; si le pasás una URL, tiene que ser loopback (127.0.0.1/localhost/::1) o el script falla antes de arrancar nada.
 - **Sin reintentos automáticos:** ante 5xx el servidor reporta error; el LLM puede reintentar manualmente.
 
 ## Seguridad
@@ -564,17 +565,14 @@ npm test
 # Smoke de protocolo MCP sobre stdio (sin credenciales reales)
 npm run test:smoke
 
-# Smoke de integracion contra un servidor Reportia REAL
-# (configura REPORTIA_BASE_URL y REPORTIA_TOKEN en tu entorno antes).
+# Smoke de integracion contra un mock local propio (no toca la API real)
 npm run build
-REPORTIA_BASE_URL=https://reportia.example.com \
-REPORTIA_TOKEN=<tu-token> \
-  npm run test:integration
+npm run test:integration
 ```
 
 El smoke test (`scripts/jsonrpc-smoke.mjs`) lanza `dist/server.js` como subproceso, le envía `initialize` + `tools/list` por JSON-RPC newline-delimited y verifica que la respuesta contenga al menos una herramienta. **No** realiza llamadas HTTP contra Reportia (apunta a `127.0.0.1:9`).
 
-El test de integración (`scripts/integration-smoke.mjs`) sí habla con un servidor Reportia real: hace `initialize`, `tools/list`, llama a `reportia_health` (que hace ping a `/api/health`) y a `reportia_whoami` (que debe devolver `AUTH_ERROR` con un token inválido para validar el manejo de errores). Útil para verificar que la versión desplegada sigue siendo compatible con el backend real.
+El test de integración (`scripts/integration-smoke.mjs`) **no habla con un Reportia real**: levanta su propio mock HTTP en 127.0.0.1 (puerto libre del SO), hace `initialize`, `tools/list`, `reportia_health` y `reportia_whoami` (que debe devolver `AUTH_ERROR` con un token inválido) contra ese mock y lo cierra al terminar. Si se le pasa una URL explícita, tiene que ser loopback; cualquier otra cosa lo hace fallar cerrado (código 2) sin arrancar nada. Para comprobar compatibilidad con un Reportia desplegado hay que usar las tools de verdad contra ese servidor, no este script.
 
 Si solo quieres validar que la build no está rota:
 
