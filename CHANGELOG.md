@@ -20,6 +20,7 @@
 
 - `server.json`'s top-level `description` was 159 characters; the MCP registry's publish step rejects descriptions over 100 and had started failing with HTTP 422. Shortened to 96 characters while keeping the same scope (accounting, SIIGO, income statement with provenance, read-only profile).
 - `README.md`: corrected a stale claim that `accountName` is always `null` in the income-statement movement rows. Reportia now returns the company's own account-mapping description there (or `null` if the company never mapped that code), and a leaf's `label` includes it (`"<code> · <name>"`) when present. No code change — the tool already accepted and propagated this field; only the documentation was wrong.
+- `README.md`: corrige la frase que describía un movimiento sin `nit` como si Reportia aún emitiera `null`; `nit` siempre es cadena (`""` si el movimiento no tiene tercero). Prueba permanente (`third.nit` vacío pasa; nulo o ausente falla cerrado con `UPSTREAM_CONTRACT_MISMATCH`).
 
 ## v0.5.0 - fecha de publicación: la de la etiqueta v0.5.0
 
