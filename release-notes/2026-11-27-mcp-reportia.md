@@ -1,7 +1,5 @@
 # mcp-reportia 0.5.1 — nota de release
 
-> Fecha de publicación: la de la etiqueta v0.5.1 (no antes de la aprobación de la publicación).
-
 ## Qué vas a notar
 
 - **El servidor ahora anuncia su versión real** (por ejemplo, al conectarse desde tu cliente MCP) en vez de mostrar siempre `0.1.0`, que era el número de la primera versión publicada.
