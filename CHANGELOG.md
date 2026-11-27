@@ -2,6 +2,14 @@
 
 ## v0.5.1
 
+### Fix: `node_modules/.bin/mcp-reportia` (and local `npx mcp-reportia`) never started the server (REQ-MCP-BIN-01)
+
+**Root cause**: `isMainEntrypoint()` in `src/server.ts` required `path.basename(process.argv[1])` to equal `server.js` before comparing resolved paths. npm's `bin` entry creates `node_modules/.bin/mcp-reportia` as a symlink to `dist/server.js`; Node does not resolve symlinks in `process.argv[1]`, so when the process is launched through that symlink (or through `npx`, which resolves the same symlink), `argv[1]`'s basename is `mcp-reportia`, never `server.js`. The basename check failed before any path comparison ran, `main()` was never invoked, and the process exited with code 0 and empty stdout — `node dist/server.js` run directly was unaffected, since `argv[1]` is already the real file in that case. Confirmed present in every published version from `0.1.0` through `0.5.0`.
+
+**Fix**: both sides of the comparison are now resolved with `fs.realpathSync` (falling back to `path.resolve` if it throws) before the basename and path checks run, so a symlinked `argv[1]` is compared against the real target file it points to. The existing Windows / Git Bash POSIX-vs-native path normalization, and the vitest import case (where `main()` must not run), are unchanged.
+
+**Tests**: new `scripts/bin-install-smoke.mjs`, chained into `test:smoke` (so it runs in CI): packs the current `package.json` with `npm pack`, installs the tarball in a clean temporary directory with no workspace, and sends `initialize` through (a) the npm bin symlink, (b) `npx --no-install`, and (c) `node dist/server.js` inside the installed package, failing closed if any path doesn't respond with the expected `serverInfo.version`.
+
 ### Fix: real package version reported at `initialize` and in the User-Agent (REQ-MCP-VERSION-01)
 
 **Root cause**: `src/server.ts:14` (`new McpServer({ name: 'mcp-reportia', version: '0.1.0' })`), `src/client.ts:114` (`CLIENT_VERSION`) and `src/config.ts` (default `userAgent`, two call sites) hardcoded the version of the very first release. Every subsequent bump (0.3.x–0.5.0) updated `package.json` but never these three sites, so `initialize` and the outgoing `User-Agent` header kept reporting `0.1.0` regardless of the installed version.
