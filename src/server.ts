@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -110,18 +111,37 @@ async function main() {
  * Module imports (e.g. under vitest) leave `process.argv[1]` as the test
  * runner script, whose basename is NOT `server.js`, so main() is not
  * invoked and the exported `createMcpServer` stays usable.
+ *
+ * A third pitfall, this one breaking every platform: npm's `bin` entry
+ * creates `node_modules/.bin/mcp-reportia` as a symlink to `dist/server.js`
+ * (and `npx`/a local `npx mcp-reportia` run that same symlink). Node does
+ * NOT resolve symlinks in `process.argv[1]` — it stays the symlink path, so
+ * its basename is `mcp-reportia`, never `server.js`. Check (b) below failed
+ * before even comparing paths, `main()` never ran, and the process exited
+ * with code 0 and no stdout. `fs.realpathSync` follows the symlink to the
+ * real `dist/server.js` so the basename check (and the resolved-path
+ * comparisons after it) see the file that's actually executing.
  */
 function normalizeForCompare(p: string): string {
   // Lowercase, forward-slash only, strip trailing slashes.
   return path.resolve(p).replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
 }
 
+/** `fs.realpathSync`, falling back to `path.resolve` if the path can't be resolved. */
+function resolveReal(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+}
+
 function isMainEntrypoint(): boolean {
   try {
     const argv1 = process.argv[1];
     if (!argv1) return false;
-    const modulePath = fileURLToPath(import.meta.url);
-    const argvPath = path.resolve(argv1);
+    const modulePath = resolveReal(fileURLToPath(import.meta.url));
+    const argvPath = resolveReal(argv1);
 
     // (a) exact resolved match.
     if (argvPath === modulePath) return true;
