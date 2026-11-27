@@ -8,6 +8,8 @@
 
 **Fix**: both sides of the comparison are now resolved with `fs.realpathSync` (falling back to `path.resolve` if it throws) before the basename and path checks run, so a symlinked `argv[1]` is compared against the real target file it points to. The existing Windows / Git Bash POSIX-vs-native path normalization, and the vitest import case (where `main()` must not run), are unchanged.
 
+**Known limitation**: verified on Linux; Windows was not retested. The existing Git Bash path-normalization logic was not modified — only the symlink resolution (with fallback) was prepended ahead of it.
+
 **Tests**: new `scripts/bin-install-smoke.mjs`, chained into `test:smoke` (so it runs in CI): packs the current `package.json` with `npm pack`, installs the tarball in a clean temporary directory with no workspace, and sends `initialize` through (a) the npm bin symlink, (b) `npx --no-install`, and (c) `node dist/server.js` inside the installed package, failing closed if any path doesn't respond with the expected `serverInfo.version`.
 
 ### Fix: real package version reported at `initialize` and in the User-Agent (REQ-MCP-VERSION-01)
