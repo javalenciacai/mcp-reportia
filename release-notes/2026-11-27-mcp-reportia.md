@@ -18,5 +18,5 @@
 
 - **Una línea o cuenta cuyo código lleva letras (por ejemplo `52A`) sigue sin poder pedirse su desglose con ese código, y esta versión no lo corrige** (una nota anterior decía que llegaría en esta versión; no es así). Esos códigos aparecen aparte, en «no clasificadas», y no suman a ninguna clase ni a la utilidad bruta — el sistema los separa en vez de mostrar una cifra que los mezcle con cuentas válidas.
 - **Las cifras pueden tener hasta 5 minutos de antigüedad** y una respuesta de más de 2 MiB se sigue rechazando en vez de entregarse a medias; esto no cambió.
-- **Si Reportia devuelve datos incompletos en un movimiento** (por ejemplo, sin tercero o sin documento), la herramienta sigue respondiendo con un error de contrato en vez de mostrar cifras, aunque los totales sean correctos.
+- **Si Reportia devuelve datos incompletos en un movimiento** (por ejemplo, sin documento, o un identificador de tercero nulo o ausente — no «sin tercero», que viene como cadena vacía y sí se muestra), la herramienta sigue respondiendo con un error de contrato en vez de mostrar cifras, aunque los totales sean correctos.
 - Los riesgos ya conocidos del perfil de solo lectura y de las herramientas que cambian datos, declarados en la nota de la versión anterior, siguen vigentes sin cambios.
