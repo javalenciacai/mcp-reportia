@@ -61,7 +61,7 @@
           "name": "REPORTIA_DOWNLOAD_DIR"
         },
         {
-          "description": "Custom User-Agent header (default mcp-reportia/0.1.0).",
+          "description": "Custom User-Agent header (default: mcp-reportia/<installed package version>).",
           "isRequired": false,
           "name": "REPORTIA_USER_AGENT"
         },

@@ -9,9 +9,10 @@ import { createClient } from './client.js';
 import { allTools } from './tools/index.js';
 import { toolsForProfile } from './read-only-tools.js';
 import { extractRawShape, toToolCallResult } from './tool-base.js';
+import { PACKAGE_VERSION } from './package-info.js';
 
 export function createMcpServer(cfg = loadConfig(), client = createClient(cfg)) {
-  const server = new McpServer({ name: 'mcp-reportia', version: '0.1.0' });
+  const server = new McpServer({ name: 'mcp-reportia', version: PACKAGE_VERSION });
   // Con `readOnly` se fija la empresa: un companyId de input distinto del default
   // falla con COMPANY_MISMATCH (ver resolveCompanyId).
   const ctx = { client, defaultCompanyId: cfg.companyId, lockCompany: cfg.readOnly };

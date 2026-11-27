@@ -22,6 +22,7 @@ import { request, FormData, type Dispatcher } from 'undici';
 import { Agent } from 'undici';
 
 import type { AppConfig } from './config.js';
+import { PACKAGE_VERSION } from './package-info.js';
 import {
   AuthError,
   NetworkError,
@@ -111,7 +112,7 @@ export interface ReportiaClient {
   invalidateSession(): void;
 }
 
-const CLIENT_VERSION = '0.1.0';
+const CLIENT_VERSION = PACKAGE_VERSION;
 
 function safeMessage(body: string, json: unknown): string {
   if (json && typeof json === 'object' && 'message' in json) {
