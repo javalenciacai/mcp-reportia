@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { PACKAGE_VERSION } from './package-info.js';
+
+const DEFAULT_USER_AGENT = `mcp-reportia/${PACKAGE_VERSION}`;
 
 const ConfigSchema = z.object({
   baseUrl: z.string().url(),
@@ -20,7 +23,7 @@ const ConfigSchema = z.object({
   companyId: z.number().int().positive().optional(),
   timeoutMs: z.number().int().positive().default(30000),
   downloadDir: z.string().min(1),
-  userAgent: z.string().min(1).default('mcp-reportia/0.1.0'),
+  userAgent: z.string().min(1).default(DEFAULT_USER_AGENT),
   maxDownloadBytes: z.number().int().positive().default(100 * 1024 * 1024),
   /**
    * Perfil de solo lectura: con `REPORTIA_READ_ONLY=true` el
@@ -75,7 +78,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     // Si REPORTIA_DOWNLOAD_DIR esta seteada (produccion, con /data/artifacts),
     // se respeta — tmpdir es solo el piso de default.
     downloadDir: path.resolve(val(env, 'REPORTIA_DOWNLOAD_DIR') ?? path.join(os.tmpdir(), 'mcp-reportia')),
-    userAgent: val(env, 'REPORTIA_USER_AGENT') ?? 'mcp-reportia/0.1.0',
+    userAgent: val(env, 'REPORTIA_USER_AGENT') ?? DEFAULT_USER_AGENT,
     maxDownloadBytes: parseIntStrict(val(env, 'REPORTIA_MAX_DOWNLOAD_BYTES'), 100 * 1024 * 1024),
     readOnly: parseBoolStrict('REPORTIA_READ_ONLY', val(env, 'REPORTIA_READ_ONLY')),
   };

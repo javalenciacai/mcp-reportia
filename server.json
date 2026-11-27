@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.javalenciacai/mcp-reportia",
-  "description": "Reportia HTTP API as 67 curated MCP tools (accounting, mappings, SIIGO, income statement with provenance), with an optional read-only profile (38 query tools).",
+  "description": "MCP server for Reportia: accounting, SIIGO, income statement with provenance; read-only profile.",
   "repository": {
     "url": "https://github.com/javalenciacai/mcp-reportia.git",
     "source": "github"
   },
-  "version": "0.5.0",
+  "version": "0.5.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@james.valencia/mcp-reportia",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -56,12 +56,12 @@
           "name": "REPORTIA_TIMEOUT_MS"
         },
         {
-          "description": "Directory where downloaded Excel/PDF exports are saved (default ./downloads).",
+          "description": "Directory for downloaded Excel/PDF exports (default: <system temp dir>/mcp-reportia).",
           "isRequired": false,
           "name": "REPORTIA_DOWNLOAD_DIR"
         },
         {
-          "description": "Custom User-Agent header (default mcp-reportia/0.1.0).",
+          "description": "Custom User-Agent header (default: mcp-reportia/<installed package version>).",
           "isRequired": false,
           "name": "REPORTIA_USER_AGENT"
         },

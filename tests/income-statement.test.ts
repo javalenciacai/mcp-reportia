@@ -664,6 +664,56 @@ describe('(a) validación no estricta del upstream => UPSTREAM_CONTRACT_MISMATCH
   });
 });
 
+// ---------------------------------------------------------------- (a) third.nit (contrato E1 errata 3, cláusula H)
+
+describe('(a) third.nit: cadena vacía pasa tal cual; nulo o ausente falla cerrado (contrato E1 errata 3, cláusula H)', () => {
+  it('resumen: third.nit = "" pasa intacto', async () => {
+    const f = summaryFixture();
+    f.lines.income.children[0].children[0].movements.rows[0].third.nit = '';
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError, r.text).toBe(false);
+    expect(r.json.lines.income.children[0].children[0].movements.rows[0].third.nit).toBe('');
+  });
+
+  it('desglose: third.nit = "" pasa intacto', async () => {
+    const f = breakdownFixture();
+    f.rows[0].third.nit = '';
+    const { mcp } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, account: '520505' });
+    expect(r.isError, r.text).toBe(false);
+    expect(r.json.rows[0].third.nit).toBe('');
+  });
+
+  it.each([
+    ['nulo', (f: any) => { f.lines.income.children[0].children[0].movements.rows[0].third.nit = null; }],
+    ['ausente', (f: any) => { delete f.lines.income.children[0].children[0].movements.rows[0].third.nit; }],
+  ])('resumen: third.nit %s => UPSTREAM_CONTRACT_MISMATCH, una sola llamada HTTP, sin datos parciales', async (_label, mutate) => {
+    const f = summaryFixture();
+    mutate(f);
+    const { mcp, calls } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD });
+    expect(r.isError).toBe(true);
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    expect(calls).toHaveLength(1);
+    expect(r.json.lines).toBeUndefined();
+  });
+
+  it.each([
+    ['nulo', (f: any) => { f.rows[0].third.nit = null; }],
+    ['ausente', (f: any) => { delete f.rows[0].third.nit; }],
+  ])('desglose: third.nit %s => UPSTREAM_CONTRACT_MISMATCH, una sola llamada HTTP, sin datos parciales', async (_label, mutate) => {
+    const f = breakdownFixture();
+    mutate(f);
+    const { mcp, calls } = await connect({ companyId: 7 }, () => f);
+    const r = await invoke(mcp, { ...PERIOD, account: '520505' });
+    expect(r.isError).toBe(true);
+    expect(r.json.code).toBe('UPSTREAM_CONTRACT_MISMATCH');
+    expect(calls).toHaveLength(1);
+    expect(r.json.rows).toBeUndefined();
+  });
+});
+
 // ---------------------------------------------------------------- (c)/(e) T3-09 con HTTP real
 
 interface HitInfo {

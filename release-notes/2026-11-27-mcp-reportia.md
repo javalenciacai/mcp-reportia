@@ -1,0 +1,24 @@
+# mcp-reportia 0.5.1 — nota de release
+
+## Qué vas a notar
+
+- **En Linux, el comando del paquete (`mcp-reportia`, también al usarlo por `npx -y @james.valencia/mcp-reportia`) ahora arranca el servidor.** Antes, al instalar el paquete y ejecutarlo así (en vez de apuntar directamente al archivo del servidor), el proceso terminaba de inmediato sin responder nada — tu cliente MCP se quedaba esperando una conexión que nunca llegaba. Lo comprobamos en Linux en las 17 versiones publicadas hasta ahora (0.1.0, 0.1.1, 0.1.3 a 0.1.6, 0.2.0, 0.2.1, 0.3.0 a 0.3.7 y 0.5.0). En Windows no lo volvimos a probar (ver «Lo que todavía puede fallar»). Si ya tenías un arreglo manual para esto (por ejemplo, invocando el archivo del servidor directamente), ya no lo necesitas en Linux.
+- **Nombre del paquete en los ejemplos:** el paquete en npm es `@james.valencia/mcp-reportia`; `mcp-reportia` solo es el nombre del comando que instala. Los ejemplos del README para Claude Desktop, Cursor y Hermes ahora usan el nombre con scope (antes decían `npx -y mcp-reportia`, que no existe en npm y falla con `E404`).
+- **El servidor ahora anuncia su versión real** (por ejemplo, al conectarse desde tu cliente MCP) en vez de mostrar siempre `0.1.0`, que era el número de la primera versión publicada. El mismo número aparece en dos lugares más: la herramienta `reportia_health` ahora informa `client.version` con la versión real (antes `0.1.0`), y las peticiones a Reportia llevan el `User-Agent` `mcp-reportia/0.5.1` (antes `mcp-reportia/0.1.0`); si lo fijas tú con `REPORTIA_USER_AGENT`, se respeta tu valor. Si algo de tu lado filtra o cuenta peticiones por ese `User-Agent`, ahora verá otro valor.
+- **La carpeta de descargas por defecto está bien documentada.** Si no defines `REPORTIA_DOWNLOAD_DIR`, los Excel y PDF exportados se guardan en la carpeta temporal del sistema, en una subcarpeta `mcp-reportia` (en Linux, `/tmp/mcp-reportia`). El README decía `./downloads`; el comportamiento no cambió, solo la documentación.
+- **La respuesta del estado de resultados puede traer el nombre que tu empresa le puso a una cuenta, si tu Reportia ya incluye el mapeo de nombres de cuenta y la mapeaste**; si no la mapeaste, o tu Reportia todavía no lo tiene, sigue viniendo solo el código. Esto corrige una afirmación desactualizada de la documentación (decía que ese nombre nunca llegaba).
+- **Se corrige la ficha que esta versión intenta publicar en el registro público de servidores MCP**: la versión anterior se rechazaba por tener una descripción demasiado larga.
+
+## Lo que NO cambia
+
+- Ninguna herramienta cambia su comportamiento, salvo `reportia_health`, que ahora informa la versión real del cliente (`client.version` pasa de `0.1.0` a `0.5.1`) y cuyas peticiones, como todas, llevan el `User-Agent` `mcp-reportia/0.5.1` en vez de `mcp-reportia/0.1.0`. Las demás: mismas consultas, filtros, exportaciones y resultados que en la versión anterior.
+- El estado de resultados sigue sin recalcular ni redondear ninguna cifra, y sigue trayendo únicamente la utilidad bruta (no hay utilidad operacional ni neta).
+- Para el chat de producción no cambia la lista de herramientas (67, o 38 con el perfil de solo lectura) ni los riesgos ya declarados en la versión anterior; lo único que se ve distinto es la versión que el servidor anuncia y el `User-Agent` descritos arriba.
+
+## Lo que todavía puede fallar
+
+- **El arreglo del comando del paquete se verificó en Linux, con el paquete instalado.** En Windows se conservó el normalizador anterior de rutas de Git Bash y ahora se ejecuta antes `realpathSync` (con respaldo a `path.resolve`) también en Windows, para decidir si el servidor arranca; ese comportamiento no se volvió a probar en Windows. Si el comando del paquete no arranca en tu equipo Windows, ejecuta `node` directamente sobre `dist/server.js`.
+- **Una línea o cuenta cuyo código lleva letras (por ejemplo `52A`) sigue sin poder pedirse su desglose con ese código, y esta versión no lo corrige** (una nota anterior decía que llegaría en esta versión; no es así). Esos códigos aparecen aparte, en «no clasificadas», y no suman a ninguna clase ni a la utilidad bruta — el sistema los separa en vez de mostrar una cifra que los mezcle con cuentas válidas.
+- **Las cifras pueden tener hasta 5 minutos de antigüedad** y una respuesta de más de 2 MiB se sigue rechazando en vez de entregarse a medias; esto no cambió.
+- **Si Reportia devuelve datos incompletos en un movimiento** (por ejemplo, sin documento, o un identificador de tercero nulo o ausente — no «sin tercero», que viene como cadena vacía y sí se muestra), la herramienta sigue respondiendo con un error de contrato en vez de mostrar cifras, aunque los totales sean correctos.
+- Los riesgos ya conocidos del perfil de solo lectura y de las herramientas que cambian datos, declarados en la nota de la versión anterior, siguen vigentes sin cambios.

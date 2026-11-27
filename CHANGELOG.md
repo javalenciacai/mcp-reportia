@@ -1,5 +1,38 @@
 ﻿# Changelog
 
+## v0.5.1
+
+### Fix: `node_modules/.bin/mcp-reportia` (and local `npx mcp-reportia`) never started the server (REQ-MCP-BIN-01)
+
+**Root cause**: `isMainEntrypoint()` in `src/server.ts` required `path.basename(process.argv[1])` to equal `server.js` before comparing resolved paths. npm's `bin` entry creates `node_modules/.bin/mcp-reportia` as a symlink to `dist/server.js`; Node does not resolve symlinks in `process.argv[1]`, so when the process is launched through that symlink (or through `npx`, which resolves the same symlink), `argv[1]`'s basename is `mcp-reportia`, never `server.js`. The basename check failed before any path comparison ran, `main()` was never invoked, and the process exited with code 0 and empty stdout — `node dist/server.js` run directly was unaffected, since `argv[1]` is already the real file in that case. Measured on Linux in all 17 published versions (`0.1.0`, `0.1.1`, `0.1.3` to `0.1.6`, `0.2.0`, `0.2.1`, `0.3.0` to `0.3.7` and `0.5.0`; no other versions are listed in npm): each was installed in a clean directory and `node_modules/.bin/mcp-reportia` produced no response to `initialize`, while `node <package>/dist/server.js` did respond.
+
+**Fix**: both sides of the comparison are now resolved with `fs.realpathSync` (falling back to `path.resolve` if it throws) before the basename and path checks run, so a symlinked `argv[1]` is compared against the real target file it points to. The existing Windows / Git Bash POSIX-vs-native path normalization (`normalizeForCompare`) was kept, and the vitest import case (where `main()` must not run) is unchanged; what changed is the order: `realpathSync` now runs first, on every platform including Windows, and the normalization compares its result.
+
+**Known limitation**: verified on Linux with the installed package; Windows was not retested. On Windows the previous Git Bash path normalizer was kept, but it now runs after `realpathSync` (with `path.resolve` fallback), which is new behavior there and has not been exercised on Windows.
+
+**Tests**: new `scripts/bin-install-smoke.mjs`, chained into `test:smoke` (so it runs in CI): packs the current `package.json` with `npm pack`, installs the tarball in a clean temporary directory with no workspace, and sends `initialize` through (a) the npm bin symlink, (b) `npx --no-install`, and (c) `node dist/server.js` inside the installed package, failing closed if any path doesn't respond with the expected `serverInfo.version`.
+
+### Fix: real package version reported at `initialize` and in the User-Agent (REQ-MCP-VERSION-01)
+
+**Root cause**: `src/server.ts:14` (`new McpServer({ name: 'mcp-reportia', version: '0.1.0' })`), `src/client.ts:114` (`CLIENT_VERSION`) and `src/config.ts` (default `userAgent`, two call sites) hardcoded the version of the very first release. Every subsequent bump (0.3.x–0.5.0) updated `package.json` but never these three sites, so `initialize` and the outgoing `User-Agent` header kept reporting `0.1.0` regardless of the installed version.
+
+**Fix**: new `src/package-info.ts` reads `version` from `package.json` once at module load (`PACKAGE_VERSION`), resolved relative to the module's own directory so it works both from `src/` (tests) and `dist/` (build). `server.ts`, `client.ts` and `config.ts` now import it instead of hardcoding a literal. `server.json`'s `REPORTIA_USER_AGENT` description no longer names a fixed version either. The observable differences are the reported version string in three places: `serverInfo.version` at `initialize`, `client.version` in the `reportia_health` result (`0.1.0` → `0.5.1`), and the default `User-Agent` header sent to Reportia (`mcp-reportia/0.1.0` → `mcp-reportia/0.5.1`, unless `REPORTIA_USER_AGENT` is set). `reportia_health` is therefore the one tool whose output changes; no other tool changes.
+
+**Tests**: new `tests/package-version.test.ts` pins `PACKAGE_VERSION` against `package.json`, the MCP `initialize` handshake's `serverInfo.version`, and the default `User-Agent`/`client.version`.
+
+### Fix: `test:integration` no longer calls the real Reportia API (REQ-MCP-TEST-01)
+
+**Root cause**: `scripts/integration-smoke.mjs` defaulted `baseUrl` to the production Reportia URL when no argument was given, so `npm run test:integration` made live, unauthenticated HTTP calls to production (`GET /api/health`, `GET /api/auth/me` with a fake token) every time it ran with no arguments.
+
+**Fix**: the script now starts its own minimal HTTP mock on `127.0.0.1` (OS-assigned free port), runs the same handshake and tool calls against it, and shuts it down afterward — no network call ever leaves the machine. An explicit `baseUrl` argument is still accepted, but the script now validates it is loopback (`127.0.0.1`/`localhost`/`::1`) and exits with an error (fail closed) before starting anything, child process included, if it isn't.
+
+### Docs: `server.json` description and README account-name wording
+
+- `server.json`'s top-level `description` was 159 characters; the MCP registry's publish step rejects descriptions over 100 and had started failing with HTTP 422. Shortened to 96 characters while keeping the same scope (accounting, SIIGO, income statement with provenance, read-only profile).
+- `README.md`: corrected a stale claim that `accountName` is always `null` in the income-statement movement rows. When the connected Reportia backend already includes account-name mapping, Reportia returns the company's own account-mapping description there (or `null` if the company never mapped that code, or if the mapped description is empty), and a leaf's `label` includes it (`"<code> · <name>"`) when present; on a Reportia backend without that mapping, `accountName` keeps coming back `null` for every account. No code change — the tool already accepted and propagated this field; only the documentation was wrong.
+- `README.md`, `release-notes/` and `server.json`: every client configuration and quick-start command now uses the scoped package name `@james.valencia/mcp-reportia` (`npx -y mcp-reportia` fails with `E404`: `mcp-reportia` is only the bin name). The "Flujo de release" section was rewritten to match `publish.yml` (it described Trusted Publishing as pending and promised that `npm version` updates `server.json`; the workflow publishes with `NPM_TOKEN` and `--provenance`, and syncs `server.json` itself). The default of `REPORTIA_DOWNLOAD_DIR` is documented as `<os tmpdir>/mcp-reportia` (it said `./downloads`, here and in `server.json`; the code never used it); `REPORTIA_MAX_DOWNLOAD_BYTES` is now in the table; backend-dependent figures (rate limit, row budget, cache window, `nit` shape) are worded as what Reportia did in the version tested, not as guarantees of this package. Test and architecture sections match the current scripts and files.
+- `README.md`: corrige la frase que describía un movimiento sin `nit` como si Reportia aún emitiera `null`; `nit` siempre es cadena (`""` si el movimiento no tiene tercero). Prueba permanente (`third.nit` vacío pasa; nulo o ausente falla cerrado con `UPSTREAM_CONTRACT_MISMATCH`).
+
 ## v0.5.0 - fecha de publicación: la de la etiqueta v0.5.0
 
 Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se publica por separado) y la tool de estado de resultados.

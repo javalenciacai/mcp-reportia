@@ -1,6 +1,6 @@
 {
   "name": "@james.valencia/mcp-reportia",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Servidor MCP (Model Context Protocol) independiente que envuelve la API HTTP real de Reportia. Pensado para ser consumido por otra aplicaci\u00f3n de IA v\u00eda npx/stdio.",
   "type": "module",
   "main": "dist/server.js",
@@ -21,7 +21,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:smoke": "node scripts/jsonrpc-smoke.mjs",
+    "test:smoke": "node scripts/jsonrpc-smoke.mjs && node scripts/bin-install-smoke.mjs",
     "test:smoke:readonly": "node scripts/read-only-smoke.mjs",
     "test:integration": "node scripts/integration-smoke.mjs dist/server.js",
     "start": "node dist/server.js",
