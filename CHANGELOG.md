@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## v0.5.1 - fecha de publicación: la de la etiqueta v0.5.1
+## v0.5.1
 
 ### Fix: real package version reported at `initialize` and in the User-Agent (REQ-MCP-VERSION-01)
 
