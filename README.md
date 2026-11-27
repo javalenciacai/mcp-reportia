@@ -19,6 +19,7 @@ Servidor **[MCP](https://modelcontextprotocol.io/)** (Model Context Protocol) in
 - [Configuración en clientes MCP](#configuración-en-clientes-mcp)
 - [Flujo de release](#flujo-de-release)
 - [Herramientas disponibles](#herramientas-disponibles)
+- [Perfil de solo lectura](#perfil-de-solo-lectura)
 - [Limitaciones conocidas](#limitaciones-conocidas)
 - [Seguridad](#seguridad)
 - [Rutas cubiertas y omitidas](#rutas-cubiertas-y-omitidas)
@@ -49,113 +50,53 @@ npx skills add javalenciacai/mcp-reportia --skill reportia-mcp-usage
 
 ## Flujo de release
 
-Este repo publica automáticamente a **npm** y al **MCP Registry oficial** cuando se pushea un tag `v*` a `main`. La indexación en **skills.sh** es automática (scrapeo de GitHub).
+Este repo publica a **npm** y al **MCP Registry oficial** cuando se empuja una etiqueta `v*` (workflow `Publish`, `.github/workflows/publish.yml`). La indexación en **skills.sh** no requiere ninguna acción (scrapeo de GitHub).
 
-### Configuración inicial (una sola vez)
+### Qué hace el workflow
 
-#### Opción elegida: npm Trusted Publishing (OIDC)
-
-La configuración vive en la **página del paquete** (no en `/settings/james.valencia/security` — esa URL es para tokens tradicionales).
-
-1. Abre **https://www.npmjs.com/package/@james.valencia/mcp-reportia/settings** (logueado como `james.valencia` en el navegador).
-2. En la sección **"Trusted Publisher"**, click en **"Add a trusted publisher"** (o "GitHub Actions" según el wording de tu versión de npmjs.com).
-3. Completa el formulario con estos valores **exactos** (la doc oficial los lista así):
-
-   | Campo | Valor |
-   | ----- | ----- |
-   | Provider | **GitHub Actions** |
-   | Organization or user | `javalenciacai` |
-   | Repository | `mcp-reportia` |
-   | Workflow filename | `publish.yml` (solo el nombre, sin la ruta `.github/workflows/`) |
-   | Environment name | **(vacío)** — el workflow no usa GitHub Environments |
-   | Allowed actions | **npm publish** (al menos uno) |
-
-4. Click **"Add"** o **"Save"**. npm NO valida la configuración al guardar, pero el workflow fallará en runtime si los datos no coinciden exactamente.
-
-#### Subir el workflow a Node 24 (necesario para Trusted Publishing)
-
-Trusted Publishing requiere `npm >= 11.5.1`, que viene incluido en **Node.js 24**. El workflow actual usa Node 22 (npm 10.9) — fallará con `ENEEDAUTH` aunque el publisher esté bien configurado.
-
-**Lo que voy a hacer yo cuando confirmes el paso 1**: actualizar el workflow a Node 24, hacer commit, re-crear el tag v0.1.2 apuntando al nuevo commit, re-disparar el publish.
-
-#### Verificación rápida de que está bien
-
-Re-dispara manualmente el workflow y mira el log del job `publish-npm`:
-```bash
-gh workflow run Publish --ref v0.1.2
-gh run watch --exit-status
-```
-
-Si dice `OK: @james.valencia/mcp-reportia@0.1.2 publicado` en el último step, está funcionando. Si vuelve a fallar, mandame el output del step "Publish" (sin el token).
-
-#### Estado actual de los requisitos
-
-| Plataforma | Requisito | Estado |
-| ---------- | --------- | ------ |
-| **npm Trusted Publishing** | Configurar publisher en `/package/@james.valencia/mcp-reportia/settings` con `javalenciacai/mcp-reportia` + `publish.yml` | Tu turno |
-| **Workflow Node 24** | Subir a Node 24 (lo hago yo tras tu confirmación) | Pendiente |
-| **MCP Registry** | Ninguno — usa `github-oidc` que firma el workflow automáticamente | Listo |
-| **skills.sh** | Ninguno — scraping automático | Listo |
-| **GitHub Release** | Permiso `contents: write` ya configurado en el workflow | Listo |
-
-### Plan al terminar tu paso 1
-
-Voy a ejecutar en este orden (no requiere tu input):
-1. Cambiar `node-version: '22'` → `'24'` en ambos jobs del workflow publish
-2. Verificar con `npm test && npm run build` local
-3. Commit + push
-4. Re-crear el tag v0.1.2 apuntando al nuevo commit
-5. Observar el workflow `Publish` hasta `publish-npm` exitoso
-6. Reportarte el resultado final (versión en npm + GitHub Release creado)
+1. **Job `validate`** — Node 24; `npm ci`, typecheck, test, build y `npm run test:smoke`. Compara `package.json.version` con la versión de la etiqueta y falla si difieren; si `server.json` no coincide con `package.json`, lo sincroniza (el MCP Registry rechaza versiones distintas).
+2. **Job `publish-npm`** — publica con `npm publish --provenance --access public`, autenticado con el secreto `NPM_TOKEN` del repositorio. Si esa versión ya está en npm, omite la publicación.
+3. **Job `publish-mcp-registry`** — valida y publica `server.json` con `mcp-publisher`. El paso de publicar está marcado `continue-on-error`: si el registro lo rechaza, el workflow no falla y el registro puede seguir mostrando una versión anterior.
+4. **Job `release`** — crea un GitHub Release con notas auto-generadas.
 
 ### Hacer un release
 
-```bash
-# 1. Bump de version (esto actualiza package.json y server.json automaticamente)
-cd /c/james/mcp-reportia
-npm version patch    # 0.1.1 -> 0.1.2 (o minor/major)
+1. Sube la versión en `package.json` y en `server.json` (deben quedar iguales en el commit).
+2. Añade la entrada del `CHANGELOG.md` y la nota de release en `release-notes/`.
+3. Lleva el cambio a `main` y crea la etiqueta con la misma versión: `git tag v<versión>` y `git push origin v<versión>`.
 
-# 2. Push del commit + tag a GitHub
-git push origin main --follow-tags
-# (npm version ya crea el tag v0.1.2 y lo pushea junto con el commit)
-```
-
-GitHub Actions se dispara automáticamente:
-
-1. **Job `validate`** — typecheck + test + build + smoke. Verifica que `package.json.version` y `server.json.version` coincidan con el tag.
-2. **Job `publish-npm`** — publica a npm via OIDC (sin tokens de larga duración).
-3. **Job `publish-mcp-registry`** — publica `server.json` al MCP Registry oficial.
-4. **Job `release`** — crea un GitHub Release con notas auto-generadas.
-
-### Publicar manualmente (sin tag)
-
-Si necesitas un release fuera del flujo normal, ve a GitHub → Actions → "Publish" → "Run workflow" y opcionalmente pasa un `version` override.
+Para un release fuera del flujo normal, ve a GitHub → Actions → «Publish» → «Run workflow» y, si hace falta, pasa un `version` que sustituya al de `package.json`.
 
 ### Rollback
 
-Si necesitas revertir una versión publicada a npm (dentro de 72h):
+Si necesitas retirar una versión publicada a npm (npm solo lo permite durante las primeras 72 h):
 
 ```bash
-npm unpublish @james.valencia/mcp-reportia@0.1.2
+npm unpublish @james.valencia/mcp-reportia@<versión>
 ```
 
-Después de 72h no es posible; debes publicar un patch. El MCP Registry no soporta rollback; hay que publicar una versión superior con la corrección.
+Pasado ese plazo hay que publicar un parche. El MCP Registry no soporta rollback; hay que publicar una versión superior con la corrección.
 
 ---
 
 ## Instalación y uso rápido
 
-Una vez publicado, el consumo típico es vía `npx`:
+El paquete se publica en npm como **`@james.valencia/mcp-reportia`**; el nombre del comando que instala es **`mcp-reportia`** (sin scope). No existe un paquete `mcp-reportia` sin scope en npm: `npx -y mcp-reportia` falla con `E404`.
 
 ```bash
-# 1) Construir dist/ localmente (la primera vez, o al actualizar):
-npm run build
+# Ejecutar el servidor MCP desde npm, sin instalarlo (necesita las variables de entorno de abajo):
+npx -y @james.valencia/mcp-reportia
 
-# 2) Ejecutar el binario MCP directamente:
-npx mcp-reportia
+# O instalarlo en un proyecto y ejecutar su comando:
+npm install @james.valencia/mcp-reportia
+npx --no-install @james.valencia/mcp-reportia
 ```
 
 Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti como subproceso. No necesitas ejecutarlo a mano salvo para depurar.
+
+> **Versiones anteriores a 0.5.1:** el comando del paquete (`node_modules/.bin/mcp-reportia`, y por tanto `npx`) terminaba sin responder nada; medido en Linux en las 17 versiones publicadas hasta 0.5.0 (0.1.0, 0.1.1, 0.1.3 a 0.1.6, 0.2.0, 0.2.1, 0.3.0 a 0.3.7 y 0.5.0). Con ellas, la configuración que funcionaba era ejecutar `node` sobre `node_modules/@james.valencia/mcp-reportia/dist/server.js`. Desde 0.5.1 el comando arranca el servidor.
+>
+> **Windows:** el arranque conserva el normalizador anterior de rutas de Git Bash y ahora ejecuta antes `fs.realpathSync` (con respaldo a `path.resolve`) también en Windows, para decidir si arranca. Está verificado en Linux con el paquete instalado; en Windows no se volvió a probar. Si el comando no arranca en tu equipo Windows, ejecuta `node` directamente sobre `dist/server.js`.
 
 ---
 
@@ -171,8 +112,9 @@ Los clientes MCP (Claude Desktop, Cursor, Hermes, etc.) **lo invocan** por ti co
 | `REPORTIA_COMPANY_ID`   | No                   | `companyId` por defecto cuando la tool lo admita. Acepta entero positivo.                                                                |
 | `REPORTIA_READ_ONLY`    | No (def. `false`)    | Perfil de solo lectura: con `true` (o `1`) el servidor registra solo las 38 tools de consulta de `read-only-tools.json` y, si `REPORTIA_COMPANY_ID` está definida, rechaza un `companyId` de entrada distinto (`COMPANY_MISMATCH`; ver «Candado de empresa»). Ausente o vacío = `false`; cualquier otro valor distinto de `true|false|1|0` (sin importar mayúsculas) impide arrancar. Ver [Perfil de solo lectura](#perfil-de-solo-lectura). |
 | `REPORTIA_TIMEOUT_MS`   | No (def. `30000`)    | Timeout por petición HTTP en ms.                                                                                                         |
-| `REPORTIA_DOWNLOAD_DIR` | No (def. `./downloads`) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados).                                                              |
-| `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/<versión del paquete>`) | Cabecera `User-Agent` en cada request.                                                                           |
+| `REPORTIA_DOWNLOAD_DIR` | No (def. `<directorio temporal del sistema>/mcp-reportia`, p. ej. `/tmp/mcp-reportia` en Linux) | Carpeta donde se guardan los binarios descargados (Excel/PDF exportados). Si falta o está vacía se usa el valor por defecto; una ruta relativa se resuelve contra el directorio desde el que arranca el servidor. |
+| `REPORTIA_MAX_DOWNLOAD_BYTES` | No (def. `104857600`, 100 MiB) | Tamaño máximo de una descarga binaria, en bytes. |
+| `REPORTIA_USER_AGENT`   | No (def. `mcp-reportia/<versión del paquete>`, p. ej. `mcp-reportia/0.5.1`) | Cabecera `User-Agent` en cada request. No hace falta fijarla: por defecto ya lleva la versión real instalada. |
 
 \* **Exactamente una** de las tres alternativas de auth debe estar presente:
 
@@ -186,7 +128,7 @@ Precedencia cuando se establece una sola: `cookie > bearer > session`. `cookie` 
 
 Si no se establece ninguna, `loadConfig` lanza `ConfigError` al arrancar el servidor.
 
-> ⚠️ **No** copies credenciales de `C:\james\Reportia\.env` a este repositorio. Este proyecto **no debe** contener secretos. Configúralas en el entorno del cliente MCP que lo invoque.
+> ⚠️ **No** copies credenciales de `el `.env` del repositorio de Reportia` a este repositorio. Este proyecto **no debe** contener secretos. Configúralas en el entorno del cliente MCP que lo invoque.
 
 Revisa `.env.example` para ver todas las variables.
 
@@ -203,7 +145,7 @@ Añade una entrada dentro de `mcpServers`:
   "mcpServers": {
     "reportia": {
       "command": "npx",
-      "args": ["-y", "mcp-reportia"],
+      "args": ["-y", "@james.valencia/mcp-reportia"],
       "env": {
         "REPORTIA_BASE_URL": "https://reportia.example.com",
         "REPORTIA_TOKEN": "<tu-token>",
@@ -214,7 +156,7 @@ Añade una entrada dentro de `mcpServers`:
 }
 ```
 
-> Sustituye `mcp-reportia` por la ruta local `C:\\james\\mcp-reportia` durante desarrollo, con `args: ["-y", "--prefix", "C:\\james\\mcp-reportia", "mcp-reportia"]` o ejecutando `npm run start` como comando directo.
+> Durante desarrollo, apunta al servidor compilado de tu clon (después de `npm run build`): `"command": "node"` y `"args": ["<ruta-a-tu-clon>/dist/server.js"]`.
 
 ### Cursor (`%USERPROFILE%\.cursor\mcp.json`)
 
@@ -223,7 +165,7 @@ Añade una entrada dentro de `mcpServers`:
   "mcpServers": {
     "reportia": {
       "command": "npx",
-      "args": ["-y", "mcp-reportia"],
+      "args": ["-y", "@james.valencia/mcp-reportia"],
       "env": {
         "REPORTIA_BASE_URL": "https://reportia.example.com",
         "REPORTIA_TOKEN": "<tu-token>"
@@ -235,7 +177,7 @@ Añade una entrada dentro de `mcpServers`:
 
 ### Hermes Agent (plugin MCP vía `~/.hermes/config.toml` o UI)
 
-Añade un servidor MCP stdio de nombre `reportia` apuntando a `npx mcp-reportia` y exporta las variables en `env`.
+Añade un servidor MCP stdio de nombre `reportia` apuntando a `npx -y @james.valencia/mcp-reportia` y exporta las variables en `env`.
 
 Formato típico:
 
@@ -243,7 +185,7 @@ Formato típico:
 [[mcp_servers]]
 name = "reportia"
 command = "npx"
-args = ["-y", "mcp-reportia"]
+args = ["-y", "@james.valencia/mcp-reportia"]
 [mcp_servers.env]
 REPORTIA_BASE_URL = "https://reportia.example.com"
 REPORTIA_TOKEN    = "<tu-token>"
@@ -261,7 +203,7 @@ Cuando el caller (p.ej. un servidor AI multi-tenant) ya resolvió la sesión de 
   "mcpServers": {
     "reportia": {
       "command": "npx",
-      "args": ["-y", "mcp-reportia"],
+      "args": ["-y", "@james.valencia/mcp-reportia"],
       "env": {
         "REPORTIA_BASE_URL": "https://reportia.example.com",
         "REPORTIA_COOKIE": "connect.sid=s%3A<session-id-from-resolved-user>",
@@ -430,12 +372,12 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 **Qué devuelve.** La respuesta de Reportia **tal cual**, más dos campos de la tool: `query` (eco de lo que se pidió, con la empresa resuelta) y `warnings`. La tool no recalcula, no redondea ni reescribe ninguna cifra: los importes son cadenas decimales exactas (por ejemplo `"12000000.625"`) y deben tratarse como texto.
 
 - **Procedencia.** Cada línea (clase 4 ingresos, 5 gastos, 6 costos, luego grupo y cuenta) trae `provenance.filter` (el filtro que reproduce la cifra) y `movementCount`. Las cuentas traen hasta `movementsPerAccount` movimientos de muestra en `movements.rows`.
-- **Lo que no cabe se declara, no se oculta.** Cuando Reportia recorta filas, `movements.remainder` (`count`, `debit`, `credit`) dice cuánto quedó fuera, y `rowBudget.truncated` indica si se alcanzó el tope por respuesta (500 filas). Para pedir el resto de una línea, repite la llamada con `account`, `limit` y `offset`. La tool nunca recorta filas por su cuenta.
-- **Respuesta con datos incompletos.** Reportia entrega el `nit` de cada movimiento siempre como cadena: vacía (`""`) si el movimiento no trae NIT, incluidos los valores en blanco. Si alguna vez llegara `nit` nulo o ausente, o un movimiento con documento incompleto (sin tipo o código), la validación responde `UPSTREAM_CONTRACT_MISMATCH` y no muestra ninguna cifra de origen dudoso, aunque los totales sean correctos.
+- **Lo que no cabe se declara, no se oculta.** Cuando Reportia recorta filas, `movements.remainder` (`count`, `debit`, `credit`) dice cuánto quedó fuera, y `rowBudget.truncated` indica si se alcanzó el tope de filas por respuesta que fija Reportia. Para pedir el resto de una línea, repite la llamada con `account`, `limit` y `offset`. La tool nunca recorta filas por su cuenta.
+- **Respuesta con datos incompletos.** El contrato espera el `nit` de cada movimiento como cadena: vacía (`""`) si el movimiento no trae NIT, incluidos los valores en blanco (así lo entrega el Reportia con el que se probó esta versión). Si alguna vez llegara `nit` nulo o ausente, o un movimiento con documento incompleto (sin tipo o código), la validación responde `UPSTREAM_CONTRACT_MISMATCH` y no muestra ninguna cifra de origen dudoso, aunque los totales sean correctos.
 - **Utilidad bruta, no neta.** `grossProfit.amount` es ingresos menos costos. No hay utilidad operacional ni neta.
 - **Cuentas fuera de las clases 4, 5 y 6** aparecen en `unclassified` y no entran en ningún total. Lo excluido o inválido (anulados, importes o sentidos inválidos, movimientos sin fecha) está en `dataQuality`, fuera de los totales.
 - **Nombre de cuenta.** Cada movimiento en `movements.rows` trae `accountName`: el texto que la empresa escribió al mapear ese código de cuenta, o `null` si no la mapeó o si la descripción del mapeo queda vacía — siempre que el backend de Reportia conectado ya incluya el mapeo de nombres de cuenta; en una instancia de Reportia sin ese mapeo, `accountName` llega `null` para toda cuenta. No es el nombre oficial de la cuenta, sino una descripción libre de la empresa. El `label` de una hoja (cuenta) es «`<código> · <accountName>`» cuando hay nombre, o solo el código si no lo hay; el de grupo y clase no cambia. El nombre del tercero puede seguir siendo `null`. `definition.notes` lo declara.
-- **Cifras no «en vivo».** Reportia guarda los resultados en caché hasta 5 minutos: dos llamadas seguidas pueden dar cifras distintas si se cargaron datos entre medio.
+- **Cifras no «en vivo».** Esta tool no guarda nada en caché, pero Reportia puede hacerlo (hasta 5 minutos en la versión con la que se probó): dos llamadas seguidas pueden dar cifras distintas si se cargaron datos entre medio, o la misma cifra aunque ya haya datos nuevos.
 
 **Errores.** El resultado es siempre un error explícito, nunca un agregado parcial ni vacío:
 
@@ -446,7 +388,7 @@ Todas las tools de este módulo son **read-only**: historial/estado de uploads, 
 | `MISSING_COMPANY_ID` / `COMPANY_MISMATCH` | Falta la empresa / la empresa pedida no es la fijada con el perfil de solo lectura. Ninguno llama a Reportia. |
 | `AUTH_ERROR` | Sesión ausente o vencida. La tool no renueva la sesión. |
 | `NOT_FOUND` | La empresa no existe o no hay acceso. El código de Reportia viaja en `details.upstreamCode` (por ejemplo `COMPANY_NOT_ACCESSIBLE`). |
-| `RATE_LIMITED` | Reportia limita las peticiones (100 por minuto). **No se reintenta.** |
+| `RATE_LIMITED` | Reportia respondió 429: limita las peticiones. **No se reintenta.** |
 | `UNEXPECTED` | Error interno de Reportia. |
 | `NETWORK_ERROR` / `TIMEOUT` | No se pudo llegar a Reportia / tardó demasiado. |
 | `UPSTREAM_CONTRACT_MISMATCH` | La respuesta de Reportia no tiene la forma esperada o usa una `schemaVersion` que esta versión no conoce. Un campo adicional que la tool no conoce **no** es un error: se propaga. |
@@ -471,7 +413,7 @@ Perfil opcional para consumidores que solo deben consultar. **Está apagado por 
 - **Una sola `ReportiaClient` por proceso:** el login es lazy y global; no se admite multi-cuenta simultánea.
 - **Subida de archivos (`multipart/form-data`):** el cliente HTTP está preparado (`FormData` desde `undici`) pero las tools actuales **no exponen endpoints de upload** (no hay POST/PUT con `multipart/form-data`). Sí se exponen dos tools **read-only** sobre el histórico y estado de uploads existentes: `reportia_uploads_history_list` (GET `/api/companies/:companyId/upload-history`) y `reportia_upload_status_get` (GET `/api/upload/:uploadId/status`). Si Reportia añade en el futuro endpoints de carga, basta con añadir un ToolDefinition que use `ctx.client.call(..., { formData })`.
 - **Sin caché persistente:** cada invocación vuelve a llamar a la API. El LLM debe sentirse libre de hacer `tools/list` cuando lo necesite.
-- **Errores HTTP:** se traducen a tipos estructurados (`AUTH_ERROR`, `NOT_FOUND`, `VALIDATION_ERROR`, `ROW_LIMIT_EXCEEDED`, `NETWORK_ERROR`, `TIMEOUT`). El cliente nunca expone secretos en el mensaje.
+- **Errores HTTP:** se traducen a tipos estructurados (`AUTH_ERROR`, `NOT_FOUND`, `VALIDATION_ERROR`, `ROW_LIMIT_EXCEEDED`, `UNPROCESSABLE_ENTITY`, `NETWORK_ERROR`, `TIMEOUT`). El cliente nunca expone secretos en el mensaje.
 - **Smoke test offline:** `npm run test:smoke` arranca el servidor con `REPORTIA_BASE_URL=http://127.0.0.1:9` (puerto cerrado). No hace llamadas reales; solo valida el handshake MCP.
 - **Prueba de integración local:** para una prueba de extremo a extremo usa `npm run test:integration`: levanta su propio servidor de prueba local en 127.0.0.1 y nunca llama a la API real de Reportia; si le pasás una URL, tiene que ser loopback (127.0.0.1/localhost/::1) o el script falla antes de arrancar nada.
 - **Sin reintentos automáticos:** ante 5xx el servidor reporta error; el LLM puede reintentar manualmente.
@@ -562,22 +504,26 @@ Los tests **no** requieren Reportia levantada ni credenciales; usan entorno sint
 # Suite unitaria (Vitest) — sin red, sin credenciales
 npm test
 
-# Smoke de protocolo MCP sobre stdio (sin credenciales reales)
+# Smoke de protocolo MCP sobre stdio y del comando del paquete instalado
+# (el segundo paso empaqueta e instala el paquete en un directorio temporal: necesita red para resolver dependencias)
 npm run test:smoke
+
+# Smoke del perfil de solo lectura (38 tools; un valor inválido no arranca)
+npm run test:smoke:readonly
 
 # Smoke de integracion contra un mock local propio (no toca la API real)
 npm run build
 npm run test:integration
 ```
 
-El smoke test (`scripts/jsonrpc-smoke.mjs`) lanza `dist/server.js` como subproceso, le envía `initialize` + `tools/list` por JSON-RPC newline-delimited y verifica que la respuesta contenga al menos una herramienta. **No** realiza llamadas HTTP contra Reportia (apunta a `127.0.0.1:9`).
+`npm run test:smoke` encadena dos scripts. El primero (`scripts/jsonrpc-smoke.mjs`) lanza `dist/server.js` como subproceso, le envía `initialize` + `tools/list` por JSON-RPC newline-delimited y verifica que la respuesta contenga al menos una herramienta. El segundo (`scripts/bin-install-smoke.mjs`) empaqueta el paquete con `npm pack`, lo instala en un directorio temporal limpio y envía `initialize` por los tres caminos de arranque (el enlace `node_modules/.bin/mcp-reportia`, `npx --no-install mcp-reportia` y `node dist/server.js` del paquete instalado), con la versión esperada. Ninguno realiza llamadas HTTP contra Reportia (apuntan a `127.0.0.1:9`).
 
 El test de integración (`scripts/integration-smoke.mjs`) **no habla con un Reportia real**: levanta su propio mock HTTP en 127.0.0.1 (puerto libre del SO), hace `initialize`, `tools/list`, `reportia_health` y `reportia_whoami` (que debe devolver `AUTH_ERROR` con un token inválido) contra ese mock y lo cierra al terminar. Si se le pasa una URL explícita, tiene que ser loopback; cualquier otra cosa lo hace fallar cerrado (código 2) sin arrancar nada. Para comprobar compatibilidad con un Reportia desplegado hay que usar las tools de verdad contra ese servidor, no este script.
 
-Si solo quieres validar que la build no está rota:
+Si solo quieres validar que la compilación y los tipos no están rotos:
 
 ```bash
-npm test -- --passWithNoTests
+npm run typecheck && npm run build
 ```
 
 ---
@@ -601,6 +547,8 @@ src/
 ├── client.ts               # Cliente HTTP sobre undici. Bearer, sesión cookie propia, o cookie pre-emitida.
 ├── errors.ts               # Jerarquía ReportiaError.
 ├── tool-base.ts            # Helpers: ToolDefinition, ok/fail, resolveCompanyId, assertConfirmed.
+├── package-info.ts         # Versión real del paquete (lee package.json); la usan initialize y el User-Agent.
+├── read-only-tools.ts      # Clasificación de las 67 tools y perfil de solo lectura.
 └── tools/
     ├── index.ts            # allTools = union de los modulos.
     ├── auth-health.ts      # reportia_health / whoami / logout.
@@ -608,15 +556,19 @@ src/
     ├── accounting-movements.ts  # reportia_movements_*.
     ├── account-mappings.ts # reportia_account_mapping_* y account_codes_search.
     ├── commission-reports.ts # reportia_commission_*.
-    └── third-parties.ts    # reportia_third_parties_*.
+    ├── third-parties.ts    # reportia_third_parties_*.
+    ├── salesperson-invoice.ts # reportia_salesperson_* e invoices.
+    ├── line-cost-center.ts # reportia_line_group_* y reportia_cost_center_*.
+    ├── operations.ts       # uploads, colas y SIIGO (solo lectura).
+    └── income-statement.ts # reportia_income_statement_get.
 
 scripts/
-└── jsonrpc-smoke.mjs       # Smoke de protocolo (sin red contra Reportia).
+├── jsonrpc-smoke.mjs       # Smoke de protocolo (sin red contra Reportia).
+├── bin-install-smoke.mjs   # Instala el tarball en un directorio limpio y arranca el servidor por sus tres caminos.
+├── read-only-smoke.mjs     # Smoke del perfil de solo lectura.
+└── integration-smoke.mjs   # Integración contra un mock HTTP local.
 
-tests/
-├── config.test.ts          # loadConfig.
-├── resolve-company-id.test.ts # helpers de tool-base.
-└── schema-validation.test.ts  # invariantes de allTools y Zod.
+tests/                      # Vitest, una prueba por módulo (config, client, security, read-only-profile, income-statement, package-version, ...).
 ```
 
 Convenciones:

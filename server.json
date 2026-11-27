@@ -56,7 +56,7 @@
           "name": "REPORTIA_TIMEOUT_MS"
         },
         {
-          "description": "Directory where downloaded Excel/PDF exports are saved (default ./downloads).",
+          "description": "Directory for downloaded Excel/PDF exports (default: <system temp dir>/mcp-reportia).",
           "isRequired": false,
           "name": "REPORTIA_DOWNLOAD_DIR"
         },
