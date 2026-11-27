@@ -136,12 +136,12 @@ async function main() {
   run('npm', ['run', 'build'], { cwd: root, stdio: 'pipe' });
 
   // 2) pack: tarball en un directorio temporal, nunca en el repo.
-  //    MCPR_BIN_SMOKE_TMPDIR permite forzar la base (p.ej. fuera de /tmp
+  //    BIN_SMOKE_TMPDIR permite forzar la base (p.ej. fuera de /tmp
   //    durante pruebas manuales); por defecto usa el tmp del SO, como hace
   //    cualquier runner de CI.
-  const tmpParent = process.env.MCPR_BIN_SMOKE_TMPDIR
-    ? fs.mkdtempSync(path.join(fs.realpathSync(process.env.MCPR_BIN_SMOKE_TMPDIR), 'mcpr-bin-smoke-'))
-    : fs.mkdtempSync(path.join(os.tmpdir(), 'mcpr-bin-smoke-'));
+  const tmpParent = process.env.BIN_SMOKE_TMPDIR
+    ? fs.mkdtempSync(path.join(fs.realpathSync(process.env.BIN_SMOKE_TMPDIR), 'bin-install-smoke-'))
+    : fs.mkdtempSync(path.join(os.tmpdir(), 'bin-install-smoke-'));
   const packDir = path.join(tmpParent, 'pack');
   const installDir = path.join(tmpParent, 'install');
   fs.mkdirSync(packDir, { recursive: true });
