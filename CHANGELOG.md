@@ -1,5 +1,26 @@
 ﻿# Changelog
 
+## v0.5.1 - fecha de publicación: la de la etiqueta v0.5.1
+
+### Fix: real package version reported at `initialize` and in the User-Agent (REQ-MCP-VERSION-01)
+
+**Root cause**: `src/server.ts:14` (`new McpServer({ name: 'mcp-reportia', version: '0.1.0' })`), `src/client.ts:114` (`CLIENT_VERSION`) and `src/config.ts` (default `userAgent`, two call sites) hardcoded the version of the very first release. Every subsequent bump (0.3.x–0.5.0) updated `package.json` but never these three sites, so `initialize` and the outgoing `User-Agent` header kept reporting `0.1.0` regardless of the installed version.
+
+**Fix**: new `src/package-info.ts` reads `version` from `package.json` once at module load (`PACKAGE_VERSION`), resolved relative to the module's own directory so it works both from `src/` (tests) and `dist/` (build). `server.ts`, `client.ts` and `config.ts` now import it instead of hardcoding a literal. `server.json`'s `REPORTIA_USER_AGENT` description no longer names a fixed version either. No change to the wire contract — only the reported version string.
+
+**Tests**: new `tests/package-version.test.ts` pins `PACKAGE_VERSION` against `package.json`, the MCP `initialize` handshake's `serverInfo.version`, and the default `User-Agent`/`client.version`.
+
+### Fix: `test:integration` no longer calls the real Reportia API (REQ-MCP-TEST-01)
+
+**Root cause**: `scripts/integration-smoke.mjs` defaulted `baseUrl` to the production Reportia URL when no argument was given, so `npm run test:integration` made live, unauthenticated HTTP calls to production (`GET /api/health`, `GET /api/auth/me` with a fake token) every time it ran with no arguments.
+
+**Fix**: the script now starts its own minimal HTTP mock on `127.0.0.1` (OS-assigned free port), runs the same handshake and tool calls against it, and shuts it down afterward — no network call ever leaves the machine. An explicit `baseUrl` argument is still accepted, but the script now validates it is loopback (`127.0.0.1`/`localhost`/`::1`) and exits with an error (fail closed) before starting anything, child process included, if it isn't.
+
+### Docs: `server.json` description and README account-name wording
+
+- `server.json`'s top-level `description` was 159 characters; the MCP registry's publish step rejects descriptions over 100 and had started failing with HTTP 422. Shortened to 96 characters while keeping the same scope (accounting, SIIGO, income statement with provenance, read-only profile).
+- `README.md`: corrected a stale claim that `accountName` is always `null` in the income-statement movement rows. Reportia now returns the company's own account-mapping description there (or `null` if the company never mapped that code), and a leaf's `label` includes it (`"<code> · <name>"`) when present. No code change — the tool already accepted and propagated this field; only the documentation was wrong.
+
 ## v0.5.0 - fecha de publicación: la de la etiqueta v0.5.0
 
 Incluye el perfil de solo lectura (que estaba previsto para 0.4.0, que no se publica por separado) y la tool de estado de resultados.
